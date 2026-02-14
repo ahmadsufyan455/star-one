@@ -13,16 +13,35 @@ import {
   Search,
   Settings,
   TrendingUp,
-  User
+  User,
+  X
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
   const [appId, setAppId] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Load saved results from localStorage on mount
+  useEffect(() => {
+    const savedResults = localStorage.getItem('analysisResults');
+    const savedAppId = localStorage.getItem('lastAppId');
+
+    if (savedResults) {
+      try {
+        setResults(JSON.parse(savedResults));
+      } catch (e) {
+        console.error('Failed to parse saved results:', e);
+      }
+    }
+
+    if (savedAppId) {
+      setAppId(savedAppId);
+    }
+  }, []);
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +67,22 @@ export default function Home() {
       }
 
       setResults(data as AnalysisResponse);
+      // Save to localStorage
+      localStorage.setItem('analysisResults', JSON.stringify(data));
+      localStorage.setItem('lastAppId', appId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClearResults = () => {
+    setResults(null);
+    setAppId('');
+    setError(null);
+    localStorage.removeItem('analysisResults');
+    localStorage.removeItem('lastAppId');
   };
 
   const quickStart = (id: string) => {
@@ -63,7 +93,8 @@ export default function Home() {
     <div className="flex min-h-screen bg-[#F8F9FB] font-sans text-gray-900">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-100 flex flex-col fixed h-full z-10 hidden md:flex">
-        <div className="p-8">
+        <div className="p-8 flex items-center gap-3">
+          <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
           <h1 className="text-xl font-bold tracking-wide">STARONE</h1>
         </div>
 
@@ -213,7 +244,7 @@ export default function Home() {
                     className="object-cover"
                   />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">
                     {results.appName}
                   </h2>
@@ -222,6 +253,13 @@ export default function Home() {
                     <span className="text-xs font-medium uppercase tracking-wide">Analysis Complete</span>
                   </div>
                 </div>
+                <button
+                  onClick={handleClearResults}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium text-sm"
+                >
+                  <X className="w-4 h-4" />
+                  Analyze Another App
+                </button>
               </div>
 
               {/* App Intelligence */}
