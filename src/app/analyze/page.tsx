@@ -98,6 +98,72 @@ export default function AnalyzePage() {
         setAppId(id);
     };
 
+    const calculateDisruptionScore = (lastUpdated: string, score: number, installs: string): { score: number; label: string; color: string } => {
+        let disruptionScore = 0;
+
+        // Parse last updated date
+        const lastUpdateDate = new Date(lastUpdated);
+        const now = new Date();
+        const monthsSinceUpdate = (now.getTime() - lastUpdateDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+
+        // Age scoring (max 30 points)
+        if (monthsSinceUpdate >= 12) {
+            disruptionScore += 30;
+        } else if (monthsSinceUpdate >= 6) {
+            disruptionScore += 20;
+        } else if (monthsSinceUpdate >= 3) {
+            disruptionScore += 10;
+        }
+
+        // Rating scoring (max 30 points)
+        if (score < 3.0) {
+            disruptionScore += 30;
+        } else if (score < 3.5) {
+            disruptionScore += 25;
+        } else if (score < 4.0) {
+            disruptionScore += 15;
+        } else if (score < 4.5) {
+            disruptionScore += 5;
+        }
+
+        // Install count + rating combo (max 40 points)
+        const installCount = parseInt(installs.replace(/[^0-9]/g, '')) || 0;
+        if (installCount >= 1000000) {
+            if (score < 3.5) {
+                disruptionScore += 40; // Huge opportunity: popular but hated
+            } else if (score < 4.0) {
+                disruptionScore += 25;
+            } else if (score < 4.5) {
+                disruptionScore += 15;
+            }
+        } else if (installCount >= 100000) {
+            if (score < 3.5) {
+                disruptionScore += 20;
+            } else if (score < 4.0) {
+                disruptionScore += 10;
+            }
+        }
+
+        // Determine label and color
+        let label = '';
+        let color = '';
+        if (disruptionScore >= 70) {
+            label = 'Highly Vulnerable';
+            color = 'text-red-600 bg-red-50 border-red-200';
+        } else if (disruptionScore >= 50) {
+            label = 'Vulnerable';
+            color = 'text-orange-600 bg-orange-50 border-orange-200';
+        } else if (disruptionScore >= 30) {
+            label = 'Moderate Opportunity';
+            color = 'text-yellow-600 bg-yellow-50 border-yellow-200';
+        } else {
+            label = 'Low Opportunity';
+            color = 'text-green-600 bg-green-50 border-green-200';
+        }
+
+        return { score: Math.min(disruptionScore, 100), label, color };
+    };
+
     return (
         <div className="flex min-h-screen bg-[#F8F9FB] font-sans text-gray-900">
             {/* Sidebar */}
@@ -359,6 +425,72 @@ export default function AnalyzePage() {
                                         <p className="text-xs text-gray-500">Key metrics for market opportunity analysis</p>
                                     </div>
                                 </div>
+
+                                {/* Disruption Score */}
+                                {(() => {
+                                    const disruption = calculateDisruptionScore(
+                                        results.lastUpdated,
+                                        results.score,
+                                        results.installs
+                                    );
+                                    return (
+                                        <div className="mb-6 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
+                                            <div className="flex items-center gap-6">
+                                                {/* Circular Gauge */}
+                                                <div className="relative flex-shrink-0">
+                                                    <svg className="w-32 h-32 transform -rotate-90">
+                                                        {/* Background circle */}
+                                                        <circle
+                                                            cx="64"
+                                                            cy="64"
+                                                            r="56"
+                                                            stroke="#e5e7eb"
+                                                            strokeWidth="12"
+                                                            fill="none"
+                                                        />
+                                                        {/* Progress circle */}
+                                                        <circle
+                                                            cx="64"
+                                                            cy="64"
+                                                            r="56"
+                                                            stroke={
+                                                                disruption.score >= 70 ? '#dc2626' :
+                                                                    disruption.score >= 50 ? '#ea580c' :
+                                                                        disruption.score >= 30 ? '#ca8a04' : '#16a34a'
+                                                            }
+                                                            strokeWidth="12"
+                                                            fill="none"
+                                                            strokeDasharray={`${(disruption.score / 100) * 351.86} 351.86`}
+                                                            strokeLinecap="round"
+                                                            className="transition-all duration-1000 ease-out"
+                                                        />
+                                                    </svg>
+                                                    {/* Score text in center */}
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                        <span className="text-3xl font-bold text-gray-900">{disruption.score}</span>
+                                                        <span className="text-xs text-gray-500 font-medium">/ 100</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Label and description */}
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h4 className="text-2xl font-bold text-gray-900">Disruption Score</h4>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${disruption.color}`}>
+                                                            {disruption.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                                        {disruption.score >= 70 && "🎯 Excellent opportunity! This app has significant weaknesses that make it vulnerable to disruption."}
+                                                        {disruption.score >= 50 && disruption.score < 70 && "⚡ Good opportunity. Users are frustrated, and there's room for a better solution."}
+                                                        {disruption.score >= 30 && disruption.score < 50 && "💡 Moderate opportunity. Some pain points exist, but the app is relatively stable."}
+                                                        {disruption.score < 30 && "✅ Low opportunity. This app is well-maintained and users are generally satisfied."}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {/* Last Updated */}
