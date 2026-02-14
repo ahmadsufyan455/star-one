@@ -97,6 +97,11 @@ export async function POST(request: NextRequest) {
 
         const prompt = `You are a product researcher analyzing app reviews to identify feature gaps and opportunities for indie hackers and competitors.
 
+APP CONTEXT:
+- App Name: ${appDetails.title}
+- Category: ${appDetails.genre || 'Not specified'}
+- Description: ${appDetails.summary || appDetails.description || 'Not available'}
+
 Analyze these negative reviews from the Google Play Store and return a JSON object with the following structure:
 {
   "top_complaints": ["complaint 1", "complaint 2", "complaint 3", ...],
@@ -119,11 +124,18 @@ Focus on:
 - Patterns across multiple reviews
 - Actionable insights that competitors could capitalize on
 
-For app_ideas, suggest 3-5 specific app concepts that could solve the identified problems. Each idea should:
-- Target a specific pain point from the complaints/requests
-- Be feasible for an indie hacker to build
-- Have clear differentiation from the analyzed app
+For app_ideas, suggest 3-5 specific app concepts that could solve the identified problems. IMPORTANT: All ideas must be relevant to "${appDetails.title}" and its category (${appDetails.genre || 'the app\'s niche'}). Each idea should be ONE of the following:
+1. **Direct Competitor**: Same category, better execution of core features
+2. **Niche Alternative**: Same category, different angle or specialized focus
+3. **Complementary Tool**: Adjacent category that enhances or extends the app's use case
+
+Each idea should:
+- Target the same or adjacent audience as "${appDetails.title}"
+- Address specific pain points from the complaints/requests
+- Be feasible for an indie hacker to build (mobile, web, or desktop)
+- Have clear differentiation from "${appDetails.title}"
 - Include a brief value proposition (1-2 sentences)
+- Stay within or adjacent to the ${appDetails.genre || 'app\'s'} category
 
 Keep each item concise (1-2 sentences max). Limit to top 5-7 items per category.
 
