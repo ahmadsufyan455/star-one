@@ -17,10 +17,12 @@ import {
   User,
   X
 } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const { data: session } = useSession();
   const [appId, setAppId] = useState('');
   const [country, setCountry] = useState('us'); // Default to US
   const [loading, setLoading] = useState(false);
@@ -126,10 +128,13 @@ export default function Home() {
             <Settings className="w-5 h-5" />
             <span className="font-medium">Setting</span>
           </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors">
+          <button
+            onClick={() => signOut()}
+            className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors text-left"
+          >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Log out</span>
-          </a>
+          </button>
         </nav>
       </aside>
 
@@ -144,10 +149,20 @@ export default function Home() {
             <Bell className="w-5 h-5" />
           </button>
           <button className="flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-            <div className="w-8 h-8 bg-[#1A1F2C] rounded-full flex items-center justify-center text-white">
-              <User className="w-4 h-4" />
-            </div>
-            <span className="font-medium text-sm">Indie Hacker</span>
+            {session?.user?.image ? (
+              <Image
+                src={session.user.image}
+                alt={session.user.name || "User"}
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-[#1A1F2C] rounded-full flex items-center justify-center text-white">
+                <User className="w-4 h-4" />
+              </div>
+            )}
+            <span className="font-medium text-sm">{session?.user?.name || "Indie Hacker"}</span>
           </button>
         </header>
 

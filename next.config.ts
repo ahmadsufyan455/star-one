@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
         hostname: 'play-lh.googleusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'googleusercontent.com',
+        pathname: '/**',
+      },
     ],
   },
 };

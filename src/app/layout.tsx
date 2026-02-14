@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SessionProvider } from "./SessionProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,12 @@ export const metadata: Metadata = {
   title: "StarOne - Competitor Analysis for Indie Hackers",
   description: "Analyze competitor apps and discover opportunities with StarOne.",
   icons: {
-    icon: "/starone.svg",
+    icon: [
+      {
+        url: "/starone.svg",
+        type: "image/svg+xml",
+      },
+    ],
   },
 };
 
@@ -30,7 +36,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
