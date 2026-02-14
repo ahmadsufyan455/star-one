@@ -80,11 +80,14 @@ export default function Home() {
               <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-2 flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
+                  id="appId"
+                  name="appId"
                   value={appId}
                   onChange={(e) => setAppId(e.target.value)}
                   placeholder="Enter Google Play App ID (e.g., com.google.android.apps.translate)"
                   className="flex-1 px-6 py-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none text-lg"
                   disabled={loading}
+                  autoComplete="off"
                 />
                 <button
                   type="submit"
