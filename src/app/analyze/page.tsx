@@ -3,12 +3,12 @@
 import type { AnalysisResponse, ErrorResponse } from '@/types';
 import {
     ArrowUpRight,
-    Bell,
+
     ChevronDown,
     History,
     Lightbulb,
     LogOut,
-    Mail,
+
     MessageSquareWarning,
     Rocket,
     Search,
@@ -143,12 +143,7 @@ export default function AnalyzePage() {
             <main className="flex-1 md:ml-64 p-8">
                 {/* Top Header */}
                 <header className="flex justify-end items-center gap-4 mb-12">
-                    <button className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-gray-900 hover:border-gray-200 transition-colors">
-                        <Mail className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 bg-white rounded-lg border border-gray-100 text-gray-500 hover:text-gray-900 hover:border-gray-200 transition-colors">
-                        <Bell className="w-5 h-5" />
-                    </button>
+
                     <button className="flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
                         {session?.user?.image ? (
                             <Image
