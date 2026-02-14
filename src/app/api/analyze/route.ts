@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     try {
         // Parse request body
         const body = await request.json();
-        const { appId } = body;
+        const { appId, country = 'us', lang = 'en' } = body;
 
         // Validate appId
         if (!appId || typeof appId !== 'string') {
@@ -31,7 +31,11 @@ export async function POST(request: NextRequest) {
         // Step 1: Fetch app details
         let appDetails;
         try {
-            appDetails = await gplay.app({ appId });
+            appDetails = await gplay.app({
+                appId,
+                country, // Use selected country
+                lang     // Use selected language
+            });
         } catch {
             return NextResponse.json<ErrorResponse>(
                 {
@@ -49,6 +53,8 @@ export async function POST(request: NextRequest) {
                 appId,
                 sort: 1, // 1 = NEWEST
                 num: 150,
+                country,
+                lang
             });
         } catch {
             return NextResponse.json<ErrorResponse>(
@@ -200,6 +206,13 @@ ${reviewTexts}`;
             feature_requests: aiResponse.feature_requests || [],
             sentiment_summary: aiResponse.sentiment_summary || 'Analysis completed',
             app_ideas: aiResponse.app_ideas || [],
+            badReviews: negativeReviews.slice(0, 10).map(review => ({
+                userName: review.userName || 'Anonymous',
+                userImage: review.userImage,
+                score: review.score,
+                date: formatLastUpdated(String(review.date || 'Unknown')),
+                text: review.text || ''
+            }))
         };
 
         return NextResponse.json<AnalysisResponse>(response, { status: 200 });

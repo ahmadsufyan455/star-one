@@ -4,6 +4,7 @@ import type { AnalysisResponse, ErrorResponse } from '@/types';
 import {
   ArrowUpRight,
   Bell,
+  ChevronDown,
   History,
   Lightbulb,
   LogOut,
@@ -21,6 +22,7 @@ import { useEffect, useState } from 'react';
 
 export default function Home() {
   const [appId, setAppId] = useState('');
+  const [country, setCountry] = useState('us'); // Default to US
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,11 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ appId }),
+        body: JSON.stringify({
+          appId,
+          country,
+          lang: country === 'id' ? 'id' : 'en' // Use Indonesian for ID, English for others
+        }),
       });
 
       const data = await response.json();
@@ -184,6 +190,18 @@ export default function Home() {
                     disabled={loading}
                     autoComplete="off"
                   />
+                  <div className="relative">
+                    <select
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      disabled={loading}
+                      className="h-full bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    >
+                      <option value="us">🇺🇸 US</option>
+                      <option value="id">🇮🇩 ID</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
                   <button
                     type="submit"
                     disabled={loading || !appId.trim()}
@@ -361,7 +379,9 @@ export default function Home() {
                       Rating
                     </div>
                     <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
-                      {results.score.toFixed(1)} ★ ({results.ratings.toLocaleString()} reviews)
+                      {results.score > 0 && results.ratings > 0
+                        ? `${results.score.toFixed(1)} ★ (${results.ratings.toLocaleString()} reviews)`
+                        : 'N/A'}
                     </div>
                   </div>
 
@@ -432,6 +452,58 @@ export default function Home() {
                 <p className="text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl text-sm">
                   {results.sentiment_summary}
                 </p>
+              </div>
+
+              {/* Bad Reviews */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    <MessageSquareWarning className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Bad Reviews (1-3 ★)</h3>
+                    <p className="text-xs text-gray-500">Real user feedback from Google Play</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {(results.badReviews || []).map((review, index) => (
+                    <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-orange-100 hover:bg-white hover:shadow-md transition-all duration-300 group">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="flex-shrink-0">
+                          {review.userImage ? (
+                            <Image
+                              src={review.userImage}
+                              alt={review.userName}
+                              width={40}
+                              height={40}
+                              className="rounded-full"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                              {review.userName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm truncate">{review.userName}</h4>
+                            <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{review.date}</span>
+                          </div>
+                          <div className="flex items-center gap-1 mb-2">
+                            {[...Array(5)].map((_, i) => (
+                              <span key={i} className={`text-sm ${i < review.score ? 'text-yellow-400' : 'text-gray-300'}`}>
+                                ★
+                              </span>
+                            ))}
+                            <span className="text-xs text-gray-500 ml-1">({review.score}/5)</span>
+                          </div>
+                          <p className="text-gray-600 text-sm leading-relaxed">{review.text}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* App Idea Recommendations */}
