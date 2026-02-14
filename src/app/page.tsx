@@ -231,6 +231,63 @@ export default function Home() {
             </div>
           )}
 
+          {/* Loading Skeleton */}
+          {loading && (
+            <div className="space-y-6 animate-fade-in pb-12">
+              {/* Loading Header */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-xl animate-shimmer bg-[length:200%_100%]"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-48"></div>
+                    <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-32"></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-500 bg-blue-50 px-4 py-3 rounded-xl border border-blue-100">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="font-medium">Analyzing app reviews... This typically takes 5-10 seconds</span>
+                </div>
+              </div>
+
+              {/* Competitive Intelligence Skeleton */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-64 mb-6"></div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-20 mb-3"></div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-24"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Complaints and Features Skeleton */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {[1, 2].map((i) => (
+                  <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-40 mb-6"></div>
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((j) => (
+                        <div key={j} className="h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg animate-shimmer bg-[length:200%_100%]"></div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sentiment Summary Skeleton */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-48 mb-4"></div>
+                <div className="space-y-3">
+                  <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-full"></div>
+                  <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-5/6"></div>
+                  <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-4/6"></div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {results && !loading && (
             <div className="space-y-6 animate-fade-in pb-12">
               {/* App Analysis Header */}
