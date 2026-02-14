@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Google Play Review Analyzer - Find Feature Gaps",
-  description: "Analyze Google Play app reviews with AI to discover feature gaps and opportunities for indie hackers. Get actionable insights and app ideas.",
+  title: "StarOne - Competitor Analysis for Indie Hackers",
+  description: "Analyze competitor apps and discover opportunities with StarOne.",
 };
 
 export default function RootLayout({
