@@ -80,7 +80,14 @@ export async function POST(request: NextRequest) {
             .join('\n\n---\n\n');
 
         // Step 5: Analyze with Gemini AI
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: {
+                temperature: 0, // Set to 0 for consistent, deterministic responses
+                topP: 1,
+                topK: 1,
+            }
+        });
 
         const prompt = `You are a product researcher analyzing app reviews to identify feature gaps and opportunities for indie hackers and competitors.
 
