@@ -169,7 +169,7 @@ export default function AnalyzePage() {
                             Welcome back
                         </h2>
                         <p className="text-gray-500">
-                            Analyze competitor apps and discover opportunities
+                            Find your next validated app idea
                         </p>
                     </div>
 
@@ -179,10 +179,10 @@ export default function AnalyzePage() {
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-1">
-                                        Google Play Review Analyzer
+                                        Market Gap Detector
                                     </h3>
                                     <p className="text-gray-500 text-sm">
-                                        Discover feature gaps and opportunities in competitor apps
+                                        Identify user pain points and feature gaps instantly
                                     </p>
                                 </div>
                                 <ArrowUpRight className="w-5 h-5 text-gray-400" />

@@ -8,7 +8,7 @@ export default function LoginPage() {
             <div className="mb-8 flex flex-col items-center gap-4">
                 <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
                 <h1 className="text-2xl font-bold tracking-wide text-gray-900">STARONE</h1>
-                <p className="text-sm text-gray-500">Discover feature opportunities from competitor reviews</p>
+                <p className="text-sm text-gray-500">Turn user pain points into your next product idea</p>
             </div>
 
             {/* Login Card */}

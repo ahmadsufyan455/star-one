@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StarOne - Competitor Analysis for Indie Hackers",
-  description: "Analyze competitor apps and discover opportunities with StarOne.",
+  title: "StarOne - Find Profitable App Ideas from User Reviews",
+  description: "Turn competitor complaints into your next product. Analyze user pain points, feature requests, and gaps to build what people actually want.",
   icons: {
     icon: [
       {
