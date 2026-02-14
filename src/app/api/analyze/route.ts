@@ -143,10 +143,52 @@ ${reviewTexts}`;
             );
         }
 
+        // Helper function to format date to human-readable format
+        const formatLastUpdated = (dateString: string): string => {
+            if (!dateString || dateString === 'Unknown') return 'Unknown';
+
+            try {
+                // Try to parse the date - handle both string dates and timestamps
+                let date: Date;
+
+                // Check if it's a timestamp (number as string)
+                if (!isNaN(Number(dateString))) {
+                    date = new Date(Number(dateString));
+                } else {
+                    date = new Date(dateString);
+                }
+
+                // Validate the date is valid
+                if (isNaN(date.getTime())) {
+                    return dateString; // Return original if invalid
+                }
+
+                const now = new Date();
+                const diffTime = Math.abs(now.getTime() - date.getTime());
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 0) return 'Today';
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return `${diffDays} days ago`;
+                if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+                if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+                return `${Math.floor(diffDays / 365)} years ago`;
+            } catch {
+                return dateString; // Return original string if any error occurs
+            }
+        };
+
         // Step 6: Return structured response
         const response: AnalysisResponse = {
             appName: appDetails.title,
             appIcon: appDetails.icon,
+            lastUpdated: formatLastUpdated(String(appDetails.updated || 'Unknown')),
+            installs: String(appDetails.installs || 'Unknown'),
+            score: appDetails.score || 0,
+            ratings: appDetails.ratings || 0,
+            price: String(appDetails.price || 'Free'),
+            free: appDetails.free ?? true,
+            offersIAP: appDetails.offersIAP ?? false,
             top_complaints: aiResponse.top_complaints || [],
             feature_requests: aiResponse.feature_requests || [],
             sentiment_summary: aiResponse.sentiment_summary || 'Analysis completed',

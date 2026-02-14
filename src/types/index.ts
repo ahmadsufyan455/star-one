@@ -23,6 +23,13 @@ export interface AIAnalysisResult {
 export interface AppInfo {
     appName: string;
     appIcon: string;
+    lastUpdated: string;
+    installs: string;
+    score: number;
+    ratings: number;
+    price: string;
+    free: boolean;
+    offersIAP: boolean;
 }
 
 // Complete API response

@@ -224,6 +224,66 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* App Intelligence */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Competitive Intelligence</h3>
+                    <p className="text-xs text-gray-500">Key metrics for market opportunity analysis</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Last Updated */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
+                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Last Updated
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                      {results.lastUpdated}
+                    </div>
+                  </div>
+
+                  {/* Install Count */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
+                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                      Installs
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                      {results.installs}
+                    </div>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
+                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                      Rating
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                      {results.score.toFixed(1)} ★ ({results.ratings.toLocaleString()} reviews)
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
+                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                      Pricing
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                      {results.free ? 'Free' : results.price}
+                      {results.offersIAP && <span className="text-xs text-gray-500 ml-1">(IAP)</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Top Complaints */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
