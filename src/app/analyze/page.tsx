@@ -324,9 +324,9 @@ export default function AnalyzePage() {
 
                                     {/* Region Selector - Segmented Control */}
                                     <div className="mb-4">
-                                        <label className="text-xs text-gray-500 font-medium mb-2 block">
+                                        <div className="text-xs text-gray-500 font-medium mb-2 block">
                                             Region
-                                        </label>
+                                        </div>
                                         {/* Desktop: Horizontal */}
                                         <div className="hidden lg:flex gap-2 p-1.5 bg-gray-100 rounded-xl">
                                             {[
