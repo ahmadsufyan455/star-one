@@ -4,8 +4,6 @@ import Footer from '@/components/Footer';
 import type { AnalysisResponse, ErrorResponse } from '@/types';
 import {
     ArrowUpRight,
-
-    ChevronDown,
     History,
     Lightbulb,
     LogOut,
@@ -58,6 +56,15 @@ export default function AnalyzePage() {
         setResults(null);
 
         try {
+            // Map country to language
+            const languageMap: Record<string, string> = {
+                'id': 'id', // Indonesian
+                'us': 'en', // English
+                'in': 'en', // English (India)
+                'gb': 'en', // English (UK)
+                'sg': 'en', // English (Singapore)
+            };
+
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: {
@@ -66,7 +73,7 @@ export default function AnalyzePage() {
                 body: JSON.stringify({
                     appId,
                     country,
-                    lang: country === 'id' ? 'id' : 'en'
+                    lang: languageMap[country] || 'en'
                 }),
             });
 
@@ -256,7 +263,11 @@ export default function AnalyzePage() {
                                 </div>
 
                                 <form onSubmit={handleAnalyze} className="w-full">
-                                    <div className="flex gap-3 mb-4 w-full">
+                                    {/* App ID Input */}
+                                    <div className="mb-4">
+                                        <label htmlFor="appId" className="text-xs text-gray-500 font-medium mb-2 block">
+                                            App Package ID
+                                        </label>
                                         <input
                                             type="text"
                                             id="appId"
@@ -264,43 +275,88 @@ export default function AnalyzePage() {
                                             value={appId}
                                             onChange={(e) => setAppId(e.target.value)}
                                             placeholder="com.instagram.android"
-                                            className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all"
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all"
                                             disabled={loading}
                                             autoComplete="off"
                                         />
-                                        <div className="relative">
-                                            <select
-                                                value={country}
-                                                onChange={(e) => setCountry(e.target.value)}
-                                                disabled={loading}
-                                                className="h-full bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-10 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                                            >
-                                                <option value="us">🇺🇸 US</option>
-                                                <option value="id">🇮🇩 ID</option>
-                                            </select>
-                                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={loading || !appId.trim()}
-                                            className="bg-[#1A1F2C] hover:bg-black text-white px-8 py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-                                        >
-                                            {loading ? (
-                                                <span className="flex items-center gap-2">
-                                                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></span>
-                                                    Analyzing...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <Search className="w-4 h-4" />
-                                                    Analyze
-                                                </>
-                                            )}
-                                        </button>
                                     </div>
+
+                                    {/* Region Selector - Segmented Control */}
+                                    <div className="mb-4">
+                                        <label className="text-xs text-gray-500 font-medium mb-2 block">
+                                            Region
+                                        </label>
+                                        {/* Desktop: Horizontal */}
+                                        <div className="hidden md:flex gap-2 p-1.5 bg-gray-100 rounded-xl">
+                                            {[
+                                                { code: 'us', flag: '🇺🇸', name: 'US' },
+                                                { code: 'id', flag: '🇮🇩', name: 'ID' },
+                                                { code: 'in', flag: '🇮🇳', name: 'IN' },
+                                                { code: 'gb', flag: '🇬🇧', name: 'GB' },
+                                                { code: 'sg', flag: '🇸🇬', name: 'SG' },
+                                            ].map((region) => (
+                                                <button
+                                                    key={region.code}
+                                                    type="button"
+                                                    onClick={() => setCountry(region.code)}
+                                                    disabled={loading}
+                                                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${country === region.code
+                                                        ? 'bg-white text-gray-900 shadow-sm'
+                                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <span className="mr-1.5">{region.flag}</span>
+                                                    {region.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {/* Mobile: Grid */}
+                                        <div className="grid grid-cols-3 gap-2 md:hidden">
+                                            {[
+                                                { code: 'us', flag: '🇺🇸', name: 'US' },
+                                                { code: 'id', flag: '🇮🇩', name: 'ID' },
+                                                { code: 'in', flag: '🇮🇳', name: 'IN' },
+                                                { code: 'gb', flag: '🇬🇧', name: 'GB' },
+                                                { code: 'sg', flag: '🇸🇬', name: 'SG' },
+                                            ].map((region) => (
+                                                <button
+                                                    key={region.code}
+                                                    type="button"
+                                                    onClick={() => setCountry(region.code)}
+                                                    disabled={loading}
+                                                    className={`px-3 py-2.5 rounded-xl font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed border ${country === region.code
+                                                        ? 'bg-gray-900 text-white border-gray-900'
+                                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    <span className="mr-1">{region.flag}</span>
+                                                    {region.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Analyze Button */}
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !appId.trim()}
+                                        className="w-full bg-[#1A1F2C] hover:bg-black text-white px-8 py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {loading ? (
+                                            <span className="flex items-center gap-2">
+                                                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></span>
+                                                Analyzing...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <Search className="w-4 h-4" />
+                                                Analyze
+                                            </>
+                                        )}
+                                    </button>
                                 </form>
 
-                                <div className="flex items-center gap-3 text-sm">
+                                <div className="flex items-center gap-3 text-sm mt-6">
                                     <span className="text-gray-400">Quick start:</span>
                                     {[
                                         { name: 'Instagram', id: 'com.instagram.android' },
