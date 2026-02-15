@@ -215,9 +215,9 @@ export default function AnalyzePage() {
 
             {/* Main Content */}
             <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
-                <div className="p-8 flex-1">
-                    {/* Top Header */}
-                    <header className="flex justify-end items-center gap-4 mb-12">
+                {/* Top Header */}
+                <header className="border-b border-gray-100 bg-white sticky top-0 z-50">
+                    <div className="px-8 h-16 flex items-center justify-end">
                         <button className="flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
                             {session?.user?.image ? (
                                 <Image
@@ -234,8 +234,10 @@ export default function AnalyzePage() {
                             )}
                             <span className="font-medium text-sm">{session?.user?.name || "Indie Hacker"}</span>
                         </button>
-                    </header>
+                    </div>
+                </header>
 
+                <div className="p-8 flex-1">
                     {/* Welcome Section */}
                     <div className="max-w-5xl mx-auto space-y-8">
                         <div>
