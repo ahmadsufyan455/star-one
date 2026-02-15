@@ -206,7 +206,7 @@ export default function AnalyzePage() {
                 } lg:translate-x-0`}>
                 <Link href="/" className="p-8 flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
-                    <h1 className="text-xl font-bold tracking-wide">STARONE</h1>
+                    <h1 className="text-xl font-bold tracking-wide">StarOne</h1>
                 </Link>
 
                 <nav className="flex-1 px-4 space-y-1">

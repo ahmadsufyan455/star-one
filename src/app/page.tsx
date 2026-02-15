@@ -1,5 +1,6 @@
 'use client';
 
+import Footer from '@/components/Footer';
 import { ArrowRight, Brain, CheckCircle2, Sparkles, Target, TrendingUp } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
@@ -269,19 +270,7 @@ export default function LandingPage() {
       </section >
 
       {/* Footer */}
-      < footer className="bg-white border-t border-gray-200 py-12" >
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Image src="/starone.svg" alt="StarOne Logo" width={24} height={24} />
-              <span className="font-semibold text-gray-900">StarOne</span>
-            </div>
-            <p className="text-sm text-gray-500">
-              © 2026 StarOne. Built for Indie Hackers.
-            </p>
-          </div>
-        </div>
-      </footer >
+      <Footer />
 
 
     </div >

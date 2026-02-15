@@ -13,7 +13,7 @@ export default function PublicLayout({
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
-                        <span className="text-xl font-bold tracking-wide text-gray-900">STARONE</span>
+                        <span className="text-xl font-bold tracking-wide text-gray-900">StarOne</span>
                     </Link>
 
                 </div>
