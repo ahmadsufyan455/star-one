@@ -204,10 +204,10 @@ export default function AnalyzePage() {
             {/* Sidebar */}
             <aside className={`w-64 bg-white border-r border-gray-100 flex flex-col fixed h-full z-50 transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                 } lg:translate-x-0`}>
-                <div className="p-8 flex items-center gap-3">
+                <Link href="/" className="p-8 flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
                     <h1 className="text-xl font-bold tracking-wide">STARONE</h1>
-                </div>
+                </Link>
 
                 <nav className="flex-1 px-4 space-y-1">
                     <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">

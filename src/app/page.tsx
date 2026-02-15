@@ -1,12 +1,289 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+'use client';
 
-export default async function Home() {
-  const session = await auth();
+import { ArrowRight, Brain, CheckCircle2, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import Image from 'next/image';
+import Link from 'next/link';
 
-  if (session) {
-    redirect("/analyze");
-  } else {
-    redirect("/login");
-  }
+export default function LandingPage() {
+  const { data: session } = useSession();
+
+  const features = [
+    {
+      icon: Brain,
+      title: "AI-Powered Analysis",
+      description: "Gemini AI reads thousands of reviews to surface what users really want but aren't getting"
+    },
+    {
+      icon: Target,
+      title: "Feature Gap Detection",
+      description: "Discover exactly what features competitors are missing that users are begging for"
+    },
+    {
+      icon: Sparkles,
+      title: "Instant App Ideas",
+      description: "Get validated app concepts based on real user pain points, not guesswork"
+    },
+    {
+      icon: TrendingUp,
+      title: "Competitive Edge",
+      description: "Build what users want before your competitors even know it's needed"
+    }
+  ];
+
+  const steps = [
+    {
+      number: "01",
+      title: "Enter Competitor App ID",
+      description: "Find any app on Google Play and paste its package ID"
+    },
+    {
+      number: "02",
+      title: "AI Analyzes Reviews",
+      description: "StarOne scrapes and analyzes thousands of user reviews with Gemini AI"
+    },
+    {
+      number: "03",
+      title: "Discover Opportunities",
+      description: "Get a list of feature gaps and validated app ideas you can build"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
+            <span className="text-lg sm:text-xl font-bold text-gray-900">StarOne</span>
+          </div>
+          {session ? (
+            <Link
+              href="/analyze"
+              className="px-4 py-2 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="px-4 py-2 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="max-w-7xl mx-auto px-6 pt-20 pb-24">
+        <div className="text-center max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full text-sm font-medium text-gray-700 mb-6">
+            <Sparkles className="w-4 h-4 text-yellow-600" />
+            <span>Powered by Gemini AI</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight text-gray-900">
+            Stop Guessing What to Build.<br />
+            <span className="bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 bg-clip-text text-transparent">
+              Let Real Users Tell You.
+            </span>
+          </h1>
+
+          <p className="text-base sm:text-lg lg:text-xl text-gray-700 mb-10 leading-relaxed">
+            StarOne analyzes competitor app reviews with AI to reveal hidden feature gaps<br className="hidden sm:block" />
+            and validated app ideas that users are <span className="font-semibold text-gray-900">actively begging for</span>.
+          </p>
+
+          <div className="flex items-center justify-center gap-4">
+            {session ? (
+              <Link
+                href="/analyze"
+                className="px-8 py-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all flex items-center gap-2 text-lg font-medium group shadow-lg hover:shadow-xl"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all flex items-center gap-2 text-base sm:text-lg font-medium group shadow-lg hover:shadow-xl"
+              >
+                Start Finding Opportunities
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            )}
+          </div>
+
+          <p className="text-sm text-gray-500 mt-6">
+            Free to start • No credit card required • Google sign-in only
+          </p>
+        </div>
+      </section>
+
+      {/* Problem Section */}
+      <section className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900">
+              The Problem Every Indie Hacker Faces
+            </h2>
+            <p className="text-base sm:text-lg text-gray-700">
+              You spend months building an app, only to realize nobody wants it.<br className="hidden sm:block" />
+              <span className="font-semibold text-gray-900">What if you could validate ideas in minutes instead?</span>
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white rounded-2xl p-8 border border-gray-200">
+              <div className="text-4xl mb-4">😰</div>
+              <h3 className="font-semibold text-lg sm:text-xl mb-2 text-gray-900">Idea Paralysis</h3>
+              <p className="text-sm sm:text-base text-gray-700">
+                "I don't know what to build. Every idea feels either too competitive or not validated."
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 border border-gray-200">
+              <div className="text-4xl mb-4">🎲</div>
+              <h3 className="font-semibold text-lg sm:text-xl mb-2 text-gray-900">Building Blindly</h3>
+              <p className="text-sm sm:text-base text-gray-700">
+                "I built what I thought users wanted, but nobody's using my app."
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 border border-gray-200">
+              <div className="text-4xl mb-4">⏰</div>
+              <h3 className="font-semibold text-lg sm:text-xl mb-2 text-gray-900">Wasted Time</h3>
+              <p className="text-sm sm:text-base text-gray-700">
+                "Months of development, zero users. How do I find problems worth solving?"
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900">
+              Find What Users Want in Minutes
+            </h2>
+            <p className="text-base sm:text-lg text-gray-700">
+              StarOne does the research so you can focus on building
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-2xl p-8 border border-gray-200 hover:border-gray-300 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-4 group-hover:bg-gray-900 transition-colors">
+                  <feature.icon className="w-6 h-6 text-gray-700 group-hover:text-white transition-colors" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 text-gray-900">{feature.title}</h3>
+                <p className="text-sm sm:text-base text-gray-700">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900">
+              From Competitor App to Validated Idea
+            </h2>
+            <p className="text-base sm:text-lg text-gray-700">
+              Three simple steps to discover your next winning app
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-16">
+            {steps.map((step, index) => (
+              <div key={index} className="relative">
+                <div className="bg-white rounded-2xl p-8 border border-gray-200">
+                  <div className="text-5xl font-bold text-gray-200 mb-4">{step.number}</div>
+                  <h3 className="text-lg sm:text-xl font-semibold mb-2 text-gray-900">{step.title}</h3>
+                  <p className="text-sm sm:text-base text-gray-700">{step.description}</p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className="hidden md:block absolute top-1/2 -right-8 transform -translate-y-1/2">
+                    <ArrowRight className="w-8 h-8 text-gray-300" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section >
+
+      {/* CTA Section */}
+      < section className="bg-gray-900 text-white py-20" >
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            Ready to Find Your Next App Idea?
+          </h2>
+          <p className="text-lg sm:text-xl text-gray-300 mb-10">
+            Join indie hackers who are building apps people actually want
+          </p>
+
+          {session ? (
+            <Link
+              href="/analyze"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl hover:bg-gray-100 transition-all text-lg font-medium group shadow-lg"
+            >
+              Go to Dashboard
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl hover:bg-gray-100 transition-all text-lg font-medium group shadow-lg"
+            >
+              Get Started Free
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          )}
+
+          <div className="flex items-center justify-center gap-8 mt-12 text-sm text-gray-400">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Free to start</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>No credit card</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Setup in 30 seconds</span>
+            </div>
+          </div>
+        </div>
+      </section >
+
+      {/* Footer */}
+      < footer className="bg-white border-t border-gray-200 py-12" >
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Image src="/starone.svg" alt="StarOne Logo" width={24} height={24} />
+              <span className="font-semibold text-gray-900">StarOne</span>
+            </div>
+            <p className="text-sm text-gray-500">
+              © 2026 StarOne. Built for Indie Hackers.
+            </p>
+          </div>
+        </div>
+      </footer >
+
+
+    </div >
+  );
 }
