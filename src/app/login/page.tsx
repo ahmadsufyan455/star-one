@@ -9,8 +9,10 @@ export default function LoginPage() {
             <div className="flex-1 flex flex-col items-center justify-center p-4">
                 {/* Logo Section */}
                 <div className="mb-8 flex flex-col items-center gap-4">
-                    <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
-                    <h1 className="text-2xl font-bold tracking-wide text-gray-900">StarOne</h1>
+                    <Link href="/" className="flex flex-col items-center gap-4 hover:opacity-80 transition-opacity">
+                        <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
+                        <h1 className="text-2xl font-bold tracking-wide text-gray-900">StarOne</h1>
+                    </Link>
                     <p className="text-sm text-gray-500">Turn user pain points into your next product idea</p>
                 </div>
 
