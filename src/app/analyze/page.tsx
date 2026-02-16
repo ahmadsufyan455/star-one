@@ -22,13 +22,20 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export default function AnalyzePage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [appId, setAppId] = useState('');
     const [country, setCountry] = useState('us'); // Default to US
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<AnalysisResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Redirect to login if unauthenticated
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            window.location.href = "/login";
+        }
+    }, [status]);
 
     // Load saved results from localStorage on mount
     useEffect(() => {
@@ -47,6 +54,19 @@ export default function AnalyzePage() {
             setAppId(savedAppId);
         }
     }, []);
+
+    // Show loading state while checking session
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900"></div>
+                    <p className="text-sm text-gray-500">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
 
     const handleAnalyze = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -101,6 +121,12 @@ export default function AnalyzePage() {
         setError(null);
         localStorage.removeItem('analysisResults');
         localStorage.removeItem('lastAppId');
+    };
+
+    const handleLogout = async () => {
+        localStorage.removeItem('analysisResults');
+        localStorage.removeItem('lastAppId');
+        await signOut({ callbackUrl: "/login" });
     };
 
     const quickStart = (id: string) => {
@@ -232,7 +258,7 @@ export default function AnalyzePage() {
                         <span className="font-medium">Setting</span>
                     </Link>
                     <button
-                        onClick={() => signOut()}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors text-left"
                     >
                         <LogOut className="w-5 h-5" />
