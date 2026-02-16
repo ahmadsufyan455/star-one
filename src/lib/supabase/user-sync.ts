@@ -15,6 +15,11 @@ export async function syncUserToSupabase(userData: UserData) {
     const supabase = createServerSupabaseClient()
 
     try {
+        // Validate input data
+        if (!userData.email || !userData.google_id) {
+            throw new Error('Missing required user data: email or google_id');
+        }
+
         // Check if user exists
         const { data: existingUser, error: fetchError } = await supabase
             .from('users')
@@ -24,7 +29,7 @@ export async function syncUserToSupabase(userData: UserData) {
 
         if (fetchError && fetchError.code !== 'PGRST116') {
             // PGRST116 = not found, which is fine
-            throw fetchError
+            throw new Error(`Failed to fetch user: ${fetchError.message}`);
         }
 
         if (existingUser) {
@@ -39,7 +44,9 @@ export async function syncUserToSupabase(userData: UserData) {
                 })
                 .eq('google_id', userData.google_id)
 
-            if (updateError) throw updateError
+            if (updateError) {
+                throw new Error(`Failed to update user: ${updateError.message}`);
+            }
 
             console.log(`User ${userData.email} updated in Supabase`)
             return existingUser
@@ -56,13 +63,30 @@ export async function syncUserToSupabase(userData: UserData) {
                 .select()
                 .single()
 
-            if (insertError) throw insertError
+            if (insertError) {
+                // Check for specific error types
+                if (insertError.code === '23505') {
+                    throw new Error(`User with email ${userData.email} already exists (duplicate key)`);
+                }
+                if (insertError.code === '42501') {
+                    throw new Error('Permission denied: Cannot insert user into database');
+                }
+                throw new Error(`Failed to create user: ${insertError.message}`);
+            }
 
             console.log(`New user ${userData.email} added to Supabase`)
             return newUser
         }
     } catch (error) {
-        console.error('Error syncing user to Supabase:', error)
-        throw error
+        // Re-throw with context
+        if (error instanceof Error) {
+            console.error('Error syncing user to Supabase:', error.message);
+            throw error;
+        }
+
+        // Unknown error type
+        const unknownError = new Error(`Unknown error syncing user: ${String(error)}`);
+        console.error(unknownError.message);
+        throw unknownError;
     }
 }
