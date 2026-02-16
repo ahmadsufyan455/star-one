@@ -2,8 +2,41 @@ import { signIn } from "@/auth"
 import Footer from "@/components/Footer"
 import Image from "next/image"
 import Link from "next/link"
+import { use } from "react"
 
-export default function LoginPage() {
+export default function LoginPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ error?: string }>
+}) {
+    // Unwrap the Promise using React.use()
+    const params = use(searchParams);
+
+    // Map NextAuth error codes to user-friendly messages
+    const getErrorMessage = (error?: string) => {
+        if (!error) return null;
+
+        const errorMessages: Record<string, string> = {
+            OAuthSignin: "Error connecting to Google. Please try again.",
+            OAuthCallback: "Error during sign-in. Please try again.",
+            OAuthCallbackError: "Error during sign-in. Please try again.",
+            OAuthCreateAccount: "Could not create your account. Please try again.",
+            EmailCreateAccount: "Could not create your account. Please try again.",
+            Callback: "Error during sign-in. Please try again.",
+            OAuthAccountNotLinked: "This email is already associated with another account.",
+            EmailSignin: "Error sending sign-in email.",
+            CredentialsSignin: "Sign-in failed. Please try again.",
+            SessionRequired: "Please sign in to access this page.",
+            AccessDenied: "You denied access. Please grant permission to continue.",
+            Verification: "The verification link has expired or has already been used.",
+            Default: "An error occurred. Please try again.",
+        };
+
+        return errorMessages[error] || errorMessages.Default;
+    };
+
+    const errorMessage = getErrorMessage(params.error);
+
     return (
         <div className="flex min-h-screen flex-col bg-[#F8F9FB] font-sans text-gray-900">
             <div className="flex-1 flex flex-col items-center justify-center p-4">
@@ -15,6 +48,28 @@ export default function LoginPage() {
                     </Link>
                     <p className="text-sm text-gray-500">Turn user pain points into your next product idea</p>
                 </div>
+
+                {/* Error Message */}
+                {errorMessage && (
+                    <div className="w-full max-w-md mb-6 rounded-xl bg-red-50 border-2 border-red-300 p-5 shadow-lg animate-[shake_0.5s_ease-in-out]">
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                                <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-sm font-semibold text-red-900 mb-1">Sign-in Failed</h3>
+                                <p className="text-sm text-red-800">{errorMessage}</p>
+                                {params.error === "AccessDenied" && (
+                                    <p className="text-xs text-red-700 mt-2 bg-red-100 p-2 rounded">
+                                        💡 <strong>Note:</strong> You must accept the Google consent screen to sign in. This allows us to access your basic profile information.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Login Card */}
                 <div className="w-full max-w-md rounded-3xl bg-white p-10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100/50">
