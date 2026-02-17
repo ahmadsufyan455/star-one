@@ -1,3 +1,5 @@
+import { auth } from '@/auth';
+import { checkRateLimit, incrementAnalysisCount } from '@/lib/rate-limit';
 import type { AnalysisResponse, ErrorResponse } from '@/types';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import gplay from 'google-play-scraper';
@@ -8,6 +10,32 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(request: NextRequest) {
     try {
+        // Get authenticated user
+        const session = await auth();
+        if (!session?.user?.email) {
+            return NextResponse.json<ErrorResponse>(
+                { error: 'Unauthorized', details: 'You must be logged in to analyze apps' },
+                { status: 401 }
+            );
+        }
+
+        const userEmail = session.user.email;
+
+        // Check rate limit
+        const rateLimitCheck = checkRateLimit(userEmail);
+        if (!rateLimitCheck.canAnalyze) {
+            return NextResponse.json(
+                {
+                    error: 'Rate limit exceeded',
+                    details: `You've reached your limit of ${rateLimitCheck.total} analyses. Please try again later.`,
+                    rateLimitExceeded: true,
+                    remaining: 0,
+                    total: rateLimitCheck.total,
+                },
+                { status: 429 }
+            );
+        }
+
         // Parse request body
         const body = await request.json();
         const { appId, country = 'us', lang = 'en' } = body;
@@ -227,7 +255,20 @@ ${reviewTexts}`;
             }))
         };
 
-        return NextResponse.json<AnalysisResponse>(response, { status: 200 });
+        // Increment analysis count after successful analysis
+        incrementAnalysisCount(userEmail);
+
+        // Get updated rate limit info
+        const updatedRateLimit = checkRateLimit(userEmail);
+
+        return NextResponse.json({
+            ...response,
+            rateLimit: {
+                remaining: updatedRateLimit.remaining,
+                total: updatedRateLimit.total,
+                limitReached: !updatedRateLimit.canAnalyze,
+            }
+        }, { status: 200 });
 
     } catch (error) {
         console.error('Unexpected error:', error);

@@ -1,5 +1,6 @@
 'use client';
 
+import { FeedbackModal } from '@/components/FeedbackModal';
 import Footer from '@/components/Footer';
 import type { AnalysisResponse, ErrorResponse } from '@/types';
 import {
@@ -29,6 +30,8 @@ export default function AnalyzePage() {
     const [results, setResults] = useState<AnalysisResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [remainingAnalyses, setRemainingAnalyses] = useState<number | null>(null);
 
     // Redirect to login if unauthenticated
     useEffect(() => {
@@ -101,6 +104,12 @@ export default function AnalyzePage() {
             const data = await response.json();
 
             if (!response.ok) {
+                // Check if rate limit exceeded
+                if (response.status === 429 || data.rateLimitExceeded) {
+                    setShowFeedbackModal(true);
+                    setError(null); // Don't show error, show modal instead
+                    return;
+                }
                 throw new Error((data as ErrorResponse).details || (data as ErrorResponse).error || 'Analysis failed');
             }
 
@@ -108,6 +117,19 @@ export default function AnalyzePage() {
             // Save to localStorage
             localStorage.setItem('analysisResults', JSON.stringify(data));
             localStorage.setItem('lastAppId', appId);
+
+            // Update remaining analyses count
+            if (data.rateLimit) {
+                setRemainingAnalyses(data.rateLimit.remaining);
+            }
+
+            // Check if limit reached after this analysis
+            if (data.rateLimit?.limitReached) {
+                // Show feedback modal after a short delay
+                setTimeout(() => {
+                    setShowFeedbackModal(true);
+                }, 1500);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
@@ -318,10 +340,20 @@ export default function AnalyzePage() {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 relative overflow-hidden group">
                             <div className="relative z-10 w-full">
                                 <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-1">
-                                            Market Gap Detector
-                                        </h3>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <h3 className="text-xl font-bold text-gray-900">
+                                                Market Gap Detector
+                                            </h3>
+                                            {remainingAnalyses !== null && (
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${remainingAnalyses === 0
+                                                        ? 'bg-red-100 text-red-700'
+                                                        : 'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                    {remainingAnalyses}/2 daily analyses left
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-gray-500 text-sm">
                                             Identify user pain points and feature gaps instantly
                                         </p>
@@ -849,6 +881,13 @@ export default function AnalyzePage() {
                 </div>
                 <Footer />
             </main >
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                isOpen={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                userEmail={session?.user?.email || undefined}
+            />
         </div >
     );
 }
