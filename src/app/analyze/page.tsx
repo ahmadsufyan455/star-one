@@ -2,6 +2,14 @@
 
 import { FeedbackModal } from '@/components/FeedbackModal';
 import Footer from '@/components/Footer';
+import {
+    trackAnalysisCompleted,
+    trackAnalysisFailed,
+    trackAnalysisStarted,
+    trackQuickStartClicked,
+    trackRateLimitHit,
+    trackUserSignOut
+} from '@/lib/analytics';
 import type { AnalysisResponse, ErrorResponse } from '@/types';
 import {
     ArrowUpRight,
@@ -79,6 +87,9 @@ export default function AnalyzePage() {
         setError(null);
         setResults(null);
 
+        // Track analysis started
+        trackAnalysisStarted(appId, country);
+
         try {
             // Map country to language
             const languageMap: Record<string, string> = {
@@ -106,6 +117,7 @@ export default function AnalyzePage() {
             if (!response.ok) {
                 // Check if rate limit exceeded
                 if (response.status === 429 || data.rateLimitExceeded) {
+                    trackRateLimitHit(session?.user?.email || 'unknown');
                     setShowFeedbackModal(true);
                     setError(null); // Don't show error, show modal instead
                     return;
@@ -117,6 +129,15 @@ export default function AnalyzePage() {
             // Save to localStorage
             localStorage.setItem('analysisResults', JSON.stringify(data));
             localStorage.setItem('lastAppId', appId);
+
+            // Track successful analysis
+            trackAnalysisCompleted(
+                appId,
+                data.appName,
+                data.top_complaints?.length || 0,
+                data.feature_requests?.length || 0,
+                data.app_ideas?.length || 0
+            );
 
             // Update remaining analyses count
             if (data.rateLimit) {
@@ -131,7 +152,11 @@ export default function AnalyzePage() {
                 }, 1500);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+            const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+            setError(errorMessage);
+
+            // Track failed analysis
+            trackAnalysisFailed(appId, errorMessage);
         } finally {
             setLoading(false);
         }
@@ -146,12 +171,14 @@ export default function AnalyzePage() {
     };
 
     const handleLogout = async () => {
+        trackUserSignOut();
         localStorage.removeItem('analysisResults');
         localStorage.removeItem('lastAppId');
         await signOut({ callbackUrl: "/login" });
     };
 
     const quickStart = (id: string) => {
+        trackQuickStartClicked(id);
         setAppId(id);
     };
 
@@ -347,8 +374,8 @@ export default function AnalyzePage() {
                                             </h3>
                                             {remainingAnalyses !== null && (
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${remainingAnalyses === 0
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : 'bg-blue-100 text-blue-700'
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-blue-100 text-blue-700'
                                                     }`}>
                                                     {remainingAnalyses}/2 daily analyses left
                                                 </span>

@@ -1,7 +1,8 @@
 'use client';
 
+import { trackFeedbackModalOpened, trackFeedbackSubmitted } from '@/lib/analytics';
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -14,6 +15,13 @@ export function FeedbackModal({ isOpen, onClose, userEmail }: FeedbackModalProps
     const [rating, setRating] = useState<number>(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+
+    // Track when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            trackFeedbackModalOpened('rate_limit');
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -36,6 +44,9 @@ export function FeedbackModal({ isOpen, onClose, userEmail }: FeedbackModalProps
             });
 
             if (response.ok) {
+                // Track feedback submission
+                trackFeedbackSubmitted(rating, feedback.trim().length > 0);
+
                 setSubmitted(true);
                 setTimeout(() => {
                     onClose();
