@@ -8,7 +8,7 @@
 
 ## 🚀 Live Demo
 
-[https://star-one.vercel.app](https://star-one.vercel.app)
+[https://star-one-five.vercel.app](https://star-one-five.vercel.app)
 
 ---
 
