@@ -2,6 +2,8 @@
 
 import { FeedbackModal } from '@/components/FeedbackModal';
 import Footer from '@/components/Footer';
+import { QUICK_START_APPS } from '@/config/quick-start';
+import { DEFAULT_REGION, REGIONS, getLanguageForRegion } from '@/config/regions';
 import {
     trackAnalysisCompleted,
     trackAnalysisFailed,
@@ -10,7 +12,8 @@ import {
     trackRateLimitHit,
     trackUserSignOut
 } from '@/lib/analytics';
-import type { AnalysisResponse, ErrorResponse } from '@/types';
+import { AnalysisResponseSchema, type AnalysisResponse, type ErrorResponse } from '@/lib/schemas/analysis';
+import { safeLoad, safeRemove, safeSave } from '@/lib/storage';
 import {
     ArrowUpRight,
     History,
@@ -33,7 +36,7 @@ import { useEffect, useState } from 'react';
 export default function AnalyzePage() {
     const { data: session, status } = useSession();
     const [appId, setAppId] = useState('');
-    const [country, setCountry] = useState('us'); // Default to US
+    const [country, setCountry] = useState<string>(DEFAULT_REGION);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<AnalysisResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -48,22 +51,12 @@ export default function AnalyzePage() {
         }
     }, [status]);
 
-    // Load saved results from localStorage on mount
     useEffect(() => {
-        const savedResults = localStorage.getItem('analysisResults');
-        const savedAppId = localStorage.getItem('lastAppId');
+        const savedResults = safeLoad('analysisResults', AnalysisResponseSchema);
+        if (savedResults) setResults(savedResults);
 
-        if (savedResults) {
-            try {
-                setResults(JSON.parse(savedResults));
-            } catch (e) {
-                console.error('Failed to parse saved results:', e);
-            }
-        }
-
-        if (savedAppId) {
-            setAppId(savedAppId);
-        }
+        const savedAppId = typeof window !== 'undefined' ? window.localStorage.getItem('lastAppId') : null;
+        if (savedAppId) setAppId(savedAppId);
     }, []);
 
     // Show loading state while checking session
@@ -91,15 +84,6 @@ export default function AnalyzePage() {
         trackAnalysisStarted(appId, country);
 
         try {
-            // Map country to language
-            const languageMap: Record<string, string> = {
-                'id': 'id', // Indonesian
-                'us': 'en', // English
-                'in': 'en', // English (India)
-                'gb': 'en', // English (UK)
-                'sg': 'en', // English (Singapore)
-            };
-
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: {
@@ -108,7 +92,7 @@ export default function AnalyzePage() {
                 body: JSON.stringify({
                     appId,
                     country,
-                    lang: languageMap[country] || 'en'
+                    lang: getLanguageForRegion(country),
                 }),
             });
 
@@ -126,9 +110,10 @@ export default function AnalyzePage() {
             }
 
             setResults(data as AnalysisResponse);
-            // Save to localStorage
-            localStorage.setItem('analysisResults', JSON.stringify(data));
-            localStorage.setItem('lastAppId', appId);
+            safeSave('analysisResults', data);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem('lastAppId', appId);
+            }
 
             // Track successful analysis
             trackAnalysisCompleted(
@@ -166,14 +151,14 @@ export default function AnalyzePage() {
         setResults(null);
         setAppId('');
         setError(null);
-        localStorage.removeItem('analysisResults');
-        localStorage.removeItem('lastAppId');
+        safeRemove('analysisResults');
+        safeRemove('lastAppId');
     };
 
     const handleLogout = async () => {
         trackUserSignOut();
-        localStorage.removeItem('analysisResults');
-        localStorage.removeItem('lastAppId');
+        safeRemove('analysisResults');
+        safeRemove('lastAppId');
         await signOut({ callbackUrl: "/login" });
     };
 
@@ -414,13 +399,7 @@ export default function AnalyzePage() {
                                         </div>
                                         {/* Desktop: Horizontal */}
                                         <div className="hidden lg:flex gap-2 p-1.5 bg-gray-100 rounded-xl">
-                                            {[
-                                                { code: 'us', flag: '🇺🇸', name: 'US' },
-                                                { code: 'id', flag: '🇮🇩', name: 'ID' },
-                                                { code: 'in', flag: '🇮🇳', name: 'IN' },
-                                                { code: 'gb', flag: '🇬🇧', name: 'GB' },
-                                                { code: 'sg', flag: '🇸🇬', name: 'SG' },
-                                            ].map((region) => (
+                                            {REGIONS.map((region) => (
                                                 <button
                                                     key={region.code}
                                                     type="button"
@@ -438,13 +417,7 @@ export default function AnalyzePage() {
                                         </div>
                                         {/* Mobile: Grid */}
                                         <div className="grid grid-cols-3 gap-2 lg:hidden">
-                                            {[
-                                                { code: 'us', flag: '🇺🇸', name: 'US' },
-                                                { code: 'id', flag: '🇮🇩', name: 'ID' },
-                                                { code: 'in', flag: '🇮🇳', name: 'IN' },
-                                                { code: 'gb', flag: '🇬🇧', name: 'GB' },
-                                                { code: 'sg', flag: '🇸🇬', name: 'SG' },
-                                            ].map((region) => (
+                                            {REGIONS.map((region) => (
                                                 <button
                                                     key={region.code}
                                                     type="button"
@@ -484,11 +457,7 @@ export default function AnalyzePage() {
 
                                 <div className="flex items-center gap-3 text-sm mt-6">
                                     <span className="text-gray-400">Quick start:</span>
-                                    {[
-                                        { name: 'Instagram', id: 'com.instagram.android' },
-                                        { name: 'Notion', id: 'notion.id' },
-                                        { name: 'Duolingo', id: 'com.duolingo' }
-                                    ].map((app) => (
+                                    {QUICK_START_APPS.map((app) => (
                                         <button
                                             key={app.name}
                                             onClick={() => quickStart(app.id)}
