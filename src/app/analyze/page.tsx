@@ -2,36 +2,25 @@
 
 import { FeedbackModal } from '@/components/FeedbackModal';
 import Footer from '@/components/Footer';
-import { QUICK_START_APPS } from '@/config/quick-start';
-import { DEFAULT_REGION, REGIONS, getLanguageForRegion } from '@/config/regions';
+import { DEFAULT_REGION, getLanguageForRegion } from '@/config/regions';
 import {
     trackAnalysisCompleted,
     trackAnalysisFailed,
     trackAnalysisStarted,
     trackQuickStartClicked,
     trackRateLimitHit,
-    trackUserSignOut
+    trackUserSignOut,
 } from '@/lib/analytics';
 import { AnalysisResponseSchema, type AnalysisResponse, type ErrorResponse } from '@/lib/schemas/analysis';
 import { safeLoad, safeRemove, safeSave } from '@/lib/storage';
-import {
-    ArrowUpRight,
-    History,
-    Lightbulb,
-    LogOut,
-    Menu,
-    MessageSquareWarning,
-    Rocket,
-    Search,
-    Settings,
-    TrendingUp,
-    User,
-    X
-} from 'lucide-react';
+import { MessageSquareWarning } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { AnalyzeHeader } from './components/AnalyzeHeader';
+import { AnalyzeSidebar } from './components/AnalyzeSidebar';
+import { AnalyzerForm } from './components/AnalyzerForm';
+import { LoadingSkeleton } from './components/LoadingSkeleton';
+import { ResultsLayout } from './components/ResultsLayout';
 
 export default function AnalyzePage() {
     const { data: session, status } = useSession();
@@ -44,10 +33,9 @@ export default function AnalyzePage() {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [remainingAnalyses, setRemainingAnalyses] = useState<number | null>(null);
 
-    // Redirect to login if unauthenticated
     useEffect(() => {
-        if (status === "unauthenticated") {
-            window.location.href = "/login";
+        if (status === 'unauthenticated') {
+            window.location.href = '/login';
         }
     }, [status]);
 
@@ -59,8 +47,7 @@ export default function AnalyzePage() {
         if (savedAppId) setAppId(savedAppId);
     }, []);
 
-    // Show loading state while checking session
-    if (status === "loading") {
+    if (status === 'loading') {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">
                 <div className="flex flex-col items-center gap-4">
@@ -71,7 +58,6 @@ export default function AnalyzePage() {
         );
     }
 
-
     const handleAnalyze = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!appId.trim()) return;
@@ -80,15 +66,12 @@ export default function AnalyzePage() {
         setError(null);
         setResults(null);
 
-        // Track analysis started
         trackAnalysisStarted(appId, country);
 
         try {
             const response = await fetch('/api/analyze', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     appId,
                     country,
@@ -99,11 +82,10 @@ export default function AnalyzePage() {
             const data = await response.json();
 
             if (!response.ok) {
-                // Check if rate limit exceeded
                 if (response.status === 429 || data.rateLimitExceeded) {
                     trackRateLimitHit(session?.user?.email || 'unknown');
                     setShowFeedbackModal(true);
-                    setError(null); // Don't show error, show modal instead
+                    setError(null);
                     return;
                 }
                 throw new Error((data as ErrorResponse).details || (data as ErrorResponse).error || 'Analysis failed');
@@ -115,32 +97,24 @@ export default function AnalyzePage() {
                 window.localStorage.setItem('lastAppId', appId);
             }
 
-            // Track successful analysis
             trackAnalysisCompleted(
                 appId,
                 data.appName,
                 data.top_complaints?.length || 0,
                 data.feature_requests?.length || 0,
-                data.app_ideas?.length || 0
+                data.app_ideas?.length || 0,
             );
 
-            // Update remaining analyses count
             if (data.rateLimit) {
                 setRemainingAnalyses(data.rateLimit.remaining);
             }
 
-            // Check if limit reached after this analysis
             if (data.rateLimit?.limitReached) {
-                // Show feedback modal after a short delay
-                setTimeout(() => {
-                    setShowFeedbackModal(true);
-                }, 1500);
+                setTimeout(() => setShowFeedbackModal(true), 1500);
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
             setError(errorMessage);
-
-            // Track failed analysis
             trackAnalysisFailed(appId, errorMessage);
         } finally {
             setLoading(false);
@@ -159,731 +133,67 @@ export default function AnalyzePage() {
         trackUserSignOut();
         safeRemove('analysisResults');
         safeRemove('lastAppId');
-        await signOut({ callbackUrl: "/login" });
+        await signOut({ callbackUrl: '/login' });
     };
 
-    const quickStart = (id: string) => {
+    const handleQuickStart = (id: string) => {
         trackQuickStartClicked(id);
         setAppId(id);
     };
 
-    const calculateDisruptionScore = (lastUpdated: string, score: number, installs: string): { score: number; label: string; color: string } => {
-        let disruptionScore = 0;
-
-        // Parse last updated date
-        const lastUpdateDate = new Date(lastUpdated);
-        const now = new Date();
-        const monthsSinceUpdate = (now.getTime() - lastUpdateDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
-
-        // Age scoring (max 30 points)
-        if (monthsSinceUpdate >= 12) {
-            disruptionScore += 30;
-        } else if (monthsSinceUpdate >= 6) {
-            disruptionScore += 20;
-        } else if (monthsSinceUpdate >= 3) {
-            disruptionScore += 10;
-        }
-
-        // Rating scoring (max 30 points)
-        if (score < 3.0) {
-            disruptionScore += 30;
-        } else if (score < 3.5) {
-            disruptionScore += 25;
-        } else if (score < 4.0) {
-            disruptionScore += 15;
-        } else if (score < 4.5) {
-            disruptionScore += 5;
-        }
-
-        // Install count + rating combo (max 40 points)
-        const installCount = parseInt(installs.replace(/[^0-9]/g, '')) || 0;
-        if (installCount >= 1000000) {
-            if (score < 3.5) {
-                disruptionScore += 40; // Huge opportunity: popular but hated
-            } else if (score < 4.0) {
-                disruptionScore += 25;
-            } else if (score < 4.5) {
-                disruptionScore += 15;
-            }
-        } else if (installCount >= 100000) {
-            if (score < 3.5) {
-                disruptionScore += 20;
-            } else if (score < 4.0) {
-                disruptionScore += 10;
-            }
-        }
-
-        // Determine label and color
-        let label = '';
-        let color = '';
-        if (disruptionScore >= 70) {
-            label = 'Highly Vulnerable';
-            color = 'text-red-600 bg-red-50 border-red-200';
-        } else if (disruptionScore >= 50) {
-            label = 'Vulnerable';
-            color = 'text-orange-600 bg-orange-50 border-orange-200';
-        } else if (disruptionScore >= 30) {
-            label = 'Moderate Opportunity';
-            color = 'text-yellow-600 bg-yellow-50 border-yellow-200';
-        } else {
-            label = 'Low Opportunity';
-            color = 'text-green-600 bg-green-50 border-green-200';
-        }
-
-        return { score: Math.min(disruptionScore, 100), label, color };
-    };
-
-    // Format large numbers to short format (1K, 10M, etc.)
-    const formatNumber = (value: string | number): string => {
-        // Extract numeric value from string (e.g., "1,000,000+" -> 1000000)
-        const numStr = typeof value === 'string' ? value.replace(/[^0-9]/g, '') : value.toString();
-        const num = parseInt(numStr) || 0;
-
-        if (num >= 1000000000) {
-            return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-        }
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-        }
-        if (num >= 1000) {
-            return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-        }
-        return num.toString();
-    };
-
     return (
         <div className="flex min-h-screen bg-[#F8F9FB] font-sans text-gray-900 overflow-x-hidden">
-            {/* Mobile Menu Overlay */}
-            {mobileMenuOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={() => setMobileMenuOpen(false)}
-                />
-            )}
+            <AnalyzeSidebar
+                isOpen={mobileMenuOpen}
+                onClose={() => setMobileMenuOpen(false)}
+                onLogout={handleLogout}
+            />
 
-            {/* Sidebar */}
-            <aside className={`w-64 bg-white border-r border-gray-100 flex flex-col fixed h-full z-50 transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-                } lg:translate-x-0`}>
-                <Link href="/" className="p-8 flex items-center gap-3 hover:opacity-80 transition-opacity">
-                    <Image src="/starone.svg" alt="StarOne Logo" width={32} height={32} />
-                    <h1 className="text-xl font-bold tracking-wide">StarOne</h1>
-                </Link>
-
-                <nav className="flex-1 px-4 space-y-1">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Main Menu
-                    </div>
-                    <Link href="/analyze" className="flex items-center gap-3 px-4 py-3 bg-[#1A1F2C] text-white rounded-xl transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                        <Search className="w-5 h-5" />
-                        <span className="font-medium">Analyzer</span>
-                    </Link>
-                    <Link href="/history" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                        <History className="w-5 h-5" />
-                        <span className="font-medium">History</span>
-                    </Link>
-                </nav>
-
-                <nav className="p-4 space-y-1 mb-8">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                        Account
-                    </div>
-                    <Link href="/settings" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                        <Settings className="w-5 h-5" />
-                        <span className="font-medium">Setting</span>
-                    </Link>
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors text-left"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        <span className="font-medium">Log out</span>
-                    </button>
-                </nav>
-            </aside>
-
-            {/* Main Content */}
             <main className="flex-1 lg:ml-64 flex flex-col min-h-screen max-w-full overflow-x-hidden">
-                {/* Top Header */}
-                <header className="border-b border-gray-100 bg-white sticky top-0 z-40">
-                    <div className="px-4 lg:px-8 h-16 flex items-center justify-between">
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            <Menu className="w-5 h-5 text-gray-700" />
-                        </button>
-
-                        {/* User Profile */}
-                        <div className="ml-auto">
-                            <button className="flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                                {session?.user?.image ? (
-                                    <Image
-                                        src={session.user.image}
-                                        alt={session.user.name || "User"}
-                                        width={32}
-                                        height={32}
-                                        className="w-8 h-8 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-8 h-8 bg-[#1A1F2C] rounded-full flex items-center justify-center text-white">
-                                        <User className="w-4 h-4" />
-                                    </div>
-                                )}
-                                <span className="font-medium text-sm hidden lg:inline">{session?.user?.name || "Indie Hacker"}</span>
-                            </button>
-                        </div>
-                    </div>
-                </header>
+                <AnalyzeHeader session={session} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
                 <div className="p-4 lg:p-8 flex-1">
-                    {/* Welcome Section */}
                     <div className="max-w-5xl mx-auto space-y-8">
                         <div>
                             <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 mb-2">
                                 Welcome back
                             </h2>
-                            <p className="text-gray-500">
-                                Find your next validated app idea
-                            </p>
+                            <p className="text-gray-500">Find your next validated app idea</p>
                         </div>
 
-                        {/* Analyzer Card */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 relative overflow-hidden group">
-                            <div className="relative z-10 w-full">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <h3 className="text-xl font-bold text-gray-900">
-                                                Market Gap Detector
-                                            </h3>
-                                            {remainingAnalyses !== null && (
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${remainingAnalyses === 0
-                                                    ? 'bg-red-100 text-red-700'
-                                                    : 'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                    {remainingAnalyses}/2 daily analyses left
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-gray-500 text-sm">
-                                            Identify user pain points and feature gaps instantly
-                                        </p>
-                                    </div>
-                                    <ArrowUpRight className="w-5 h-5 text-gray-400" />
-                                </div>
+                        <AnalyzerForm
+                            appId={appId}
+                            country={country}
+                            loading={loading}
+                            remainingAnalyses={remainingAnalyses}
+                            onAppIdChange={setAppId}
+                            onCountryChange={setCountry}
+                            onSubmit={handleAnalyze}
+                            onQuickStart={handleQuickStart}
+                        />
 
-                                <form onSubmit={handleAnalyze} className="w-full">
-                                    {/* App ID Input */}
-                                    <div className="mb-4">
-                                        <label htmlFor="appId" className="text-xs text-gray-500 font-medium mb-2 block">
-                                            App Package ID
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="appId"
-                                            name="appId"
-                                            value={appId}
-                                            onChange={(e) => setAppId(e.target.value)}
-                                            placeholder="com.instagram.android"
-                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all"
-                                            disabled={loading}
-                                            autoComplete="off"
-                                        />
-                                    </div>
-
-                                    {/* Region Selector - Segmented Control */}
-                                    <div className="mb-4">
-                                        <div className="text-xs text-gray-500 font-medium mb-2 block">
-                                            Region
-                                        </div>
-                                        {/* Desktop: Horizontal */}
-                                        <div className="hidden lg:flex gap-2 p-1.5 bg-gray-100 rounded-xl">
-                                            {REGIONS.map((region) => (
-                                                <button
-                                                    key={region.code}
-                                                    type="button"
-                                                    onClick={() => setCountry(region.code)}
-                                                    disabled={loading}
-                                                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${country === region.code
-                                                        ? 'bg-white text-gray-900 shadow-sm'
-                                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    <span className="mr-1.5">{region.flag}</span>
-                                                    {region.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        {/* Mobile: Grid */}
-                                        <div className="grid grid-cols-3 gap-2 lg:hidden">
-                                            {REGIONS.map((region) => (
-                                                <button
-                                                    key={region.code}
-                                                    type="button"
-                                                    onClick={() => setCountry(region.code)}
-                                                    disabled={loading}
-                                                    className={`px-3 py-2.5 rounded-xl font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed border ${country === region.code
-                                                        ? 'bg-gray-900 text-white border-gray-900'
-                                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
-                                                        }`}
-                                                >
-                                                    <span className="mr-1">{region.flag}</span>
-                                                    {region.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Analyze Button */}
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !appId.trim()}
-                                        className="w-full bg-[#1A1F2C] hover:bg-black text-white px-8 py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        {loading ? (
-                                            <span className="flex items-center gap-2">
-                                                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></span>
-                                                Analyzing...
-                                            </span>
-                                        ) : (
-                                            <>
-                                                <Search className="w-4 h-4" />
-                                                Analyze
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
-
-                                <div className="flex items-center gap-3 text-sm mt-6">
-                                    <span className="text-gray-400">Quick start:</span>
-                                    {QUICK_START_APPS.map((app) => (
-                                        <button
-                                            key={app.name}
-                                            onClick={() => quickStart(app.id)}
-                                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-xs font-medium transition-colors"
-                                        >
-                                            {app.name}
-                                        </button>
-                                    ))}
-                                </div>
+                        {error && (
+                            <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-xl flex items-center gap-3 animate-fade-in">
+                                <MessageSquareWarning className="w-5 h-5 flex-shrink-0" />
+                                <p>{error}</p>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Results Display */}
-                        {
-                            error && (
-                                <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-xl flex items-center gap-3 animate-fade-in">
-                                    <MessageSquareWarning className="w-5 h-5 flex-shrink-0" />
-                                    <p>{error}</p>
-                                </div>
-                            )
-                        }
+                        {loading && <LoadingSkeleton />}
 
-                        {/* Loading Skeleton */}
-                        {
-                            loading && (
-                                <div className="space-y-6 animate-fade-in pb-12">
-                                    {/* Loading Header */}
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <div className="w-12 h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-xl animate-shimmer bg-[length:200%_100%]"></div>
-                                            <div className="flex-1 space-y-2">
-                                                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-48"></div>
-                                                <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-32"></div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-sm text-gray-500 bg-blue-50 px-4 py-3 rounded-xl border border-blue-100">
-                                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                            <span className="font-medium">Analyzing app reviews... This typically takes 5-10 seconds</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Competitive Intelligence Skeleton */}
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                        <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-64 mb-6"></div>
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {[1, 2, 3, 4].map((i) => (
-                                                <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                                    <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-20 mb-3"></div>
-                                                    <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-24"></div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Complaints and Features Skeleton */}
-                                    <div className="grid lg:grid-cols-2 gap-6">
-                                        {[1, 2].map((i) => (
-                                            <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                                <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-40 mb-6"></div>
-                                                <div className="space-y-4">
-                                                    {[1, 2, 3].map((j) => (
-                                                        <div key={j} className="h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg animate-shimmer bg-[length:200%_100%]"></div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Sentiment Summary Skeleton */}
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                        <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-48 mb-4"></div>
-                                        <div className="space-y-3">
-                                            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-full"></div>
-                                            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-5/6"></div>
-                                            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-shimmer bg-[length:200%_100%] w-4/6"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        }
-
-                        {
-                            results && !loading && (
-                                <div className="space-y-6 animate-fade-in pb-12">
-                                    {/* App Analysis Header */}
-                                    <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6 bg-white p-4 lg:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                        <div className="relative w-12 h-12 lg:w-16 lg:h-16 rounded-xl overflow-hidden shadow-sm border border-gray-100 flex-shrink-0">
-                                            <Image
-                                                src={results.appIcon}
-                                                alt={results.appName}
-                                                fill
-                                                sizes="(max-width: 640px) 48px, 64px"
-                                                className="object-cover"
-                                            />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h2 className="text-lg lg:text-2xl font-bold text-gray-900 mb-1 truncate">
-                                                {results.appName}
-                                            </h2>
-                                            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1 rounded-full w-fit">
-                                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                                <span className="text-xs font-medium uppercase tracking-wide">Analysis Complete</span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={handleClearResults}
-                                            className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium text-xs lg:text-sm w-full lg:w-auto justify-center"
-                                        >
-                                            <X className="w-4 h-4" />
-                                            <span className="hidden lg:inline">Analyze Another App</span>
-                                            <span className="lg:hidden">New Analysis</span>
-                                        </button>
-                                    </div>
-
-                                    {/* App Intelligence */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                                        <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-                                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                                                <TrendingUp className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-gray-900">Competitive Intelligence</h3>
-                                                <p className="text-xs text-gray-500">Key metrics for market opportunity analysis</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Disruption Score */}
-                                        {(() => {
-                                            const disruption = calculateDisruptionScore(
-                                                results.lastUpdated,
-                                                results.score,
-                                                results.installs
-                                            );
-                                            return (
-                                                <div className="mb-6 p-4 lg:p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
-                                                    <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-6">
-                                                        {/* Circular Gauge */}
-                                                        <div className="relative flex-shrink-0">
-                                                            <svg className="w-24 h-24 lg:w-32 lg:h-32 transform -rotate-90" viewBox="0 0 128 128">
-                                                                {/* Background circle */}
-                                                                <circle
-                                                                    cx="64"
-                                                                    cy="64"
-                                                                    r="56"
-                                                                    stroke="#e5e7eb"
-                                                                    strokeWidth="12"
-                                                                    fill="none"
-                                                                />
-                                                                {/* Progress circle */}
-                                                                <circle
-                                                                    cx="64"
-                                                                    cy="64"
-                                                                    r="56"
-                                                                    stroke={
-                                                                        disruption.score >= 70 ? '#dc2626' :
-                                                                            disruption.score >= 50 ? '#ea580c' :
-                                                                                disruption.score >= 30 ? '#ca8a04' : '#16a34a'
-                                                                    }
-                                                                    strokeWidth="12"
-                                                                    fill="none"
-                                                                    strokeDasharray={`${(disruption.score / 100) * 351.86} 351.86`}
-                                                                    strokeLinecap="round"
-                                                                    className="transition-all duration-1000 ease-out"
-                                                                />
-                                                            </svg>
-                                                            {/* Score text in center */}
-                                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                                <span className="text-2xl lg:text-3xl font-bold text-gray-900">{disruption.score}</span>
-                                                                <span className="text-xs text-gray-500 font-medium">/ 100</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Label and description */}
-                                                        <div className="flex-1 text-center lg:text-left">
-                                                            <div className="flex flex-col lg:flex-row items-center gap-2 lg:gap-3 mb-2">
-                                                                <h4 className="text-xl lg:text-2xl font-bold text-gray-900">Disruption Score</h4>
-                                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${disruption.color}`}>
-                                                                    {disruption.label}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-xs lg:text-sm text-gray-600 leading-relaxed">
-                                                                {disruption.score >= 70 && "🎯 Excellent opportunity! This app has significant weaknesses that make it vulnerable to disruption."}
-                                                                {disruption.score >= 50 && disruption.score < 70 && "⚡ Good opportunity. Users are frustrated, and there's room for a better solution."}
-                                                                {disruption.score >= 30 && disruption.score < 50 && "💡 Moderate opportunity. Some pain points exist, but the app is relatively stable."}
-                                                                {disruption.score < 30 && "✅ Low opportunity. This app is well-maintained and users are generally satisfied."}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {/* Last Updated */}
-                                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
-                                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                                                    Last Updated
-                                                </div>
-                                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
-                                                    {results.lastUpdated}
-                                                </div>
-                                            </div>
-
-                                            {/* Install Count */}
-                                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
-                                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                                                    Installs
-                                                </div>
-                                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
-                                                    {formatNumber(results.installs)}+
-                                                </div>
-                                            </div>
-
-                                            {/* Rating */}
-                                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
-                                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
-                                                    Rating
-                                                </div>
-                                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
-                                                    {results.score > 0 && results.ratings > 0
-                                                        ? `${results.score.toFixed(1)} ★ (${formatNumber(results.ratings)} reviews)`
-                                                        : 'N/A'}
-                                                </div>
-                                            </div>
-
-                                            {/* Pricing */}
-                                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white transition-all group">
-                                                <div className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                                                    Pricing
-                                                </div>
-                                                <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
-                                                    {results.free ? 'Free' : results.price}
-                                                    {results.offersIAP && <span className="text-xs text-gray-500 ml-1">(IAP)</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid lg:grid-cols-2 gap-6">
-                                        {/* Top Complaints */}
-                                        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-                                                    <TrendingUp className="w-5 h-5 rotate-180" />
-                                                </div>
-                                                <h3 className="text-lg font-bold text-gray-900">Top Complaints</h3>
-                                            </div>
-                                            <ul className="space-y-4">
-                                                {results.top_complaints.map((complaint, index) => (
-                                                    <li key={index} className="flex gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                                                        <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-bold font-mono">
-                                                            {index + 1}
-                                                        </span>
-                                                        <span className="text-gray-600 text-sm leading-relaxed">{complaint}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        {/* Feature Requests */}
-                                        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                                    <Lightbulb className="w-5 h-5" />
-                                                </div>
-                                                <h3 className="text-lg font-bold text-gray-900">Feature Requests</h3>
-                                            </div>
-                                            <ul className="space-y-4">
-                                                {results.feature_requests.map((request, index) => (
-                                                    <li key={index} className="flex gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                                                        <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold font-mono">
-                                                            {index + 1}
-                                                        </span>
-                                                        <span className="text-gray-600 text-sm leading-relaxed">{request}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Sentiment Summary */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                                                <MessageSquareWarning className="w-5 h-5" />
-                                            </div>
-                                            <h3 className="text-lg font-bold text-gray-900">Sentiment Summary</h3>
-                                        </div>
-                                        <p className="text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl text-sm">
-                                            {results.sentiment_summary}
-                                        </p>
-                                    </div>
-
-                                    {/* Bad Reviews */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                                        <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-                                            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-                                                <MessageSquareWarning className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-gray-900">Bad Reviews (1-3 ★)</h3>
-                                                <p className="text-xs text-gray-500">Real user feedback from Google Play</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            {(results.badReviews || []).map((review, index) => (
-                                                <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-orange-100 hover:bg-white hover:shadow-md transition-all duration-300 group">
-                                                    <div className="flex items-start gap-3 mb-3">
-                                                        <div className="flex-shrink-0">
-                                                            {review.userImage ? (
-                                                                <Image
-                                                                    src={review.userImage}
-                                                                    alt={review.userName}
-                                                                    width={40}
-                                                                    height={40}
-                                                                    className="rounded-full"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                                                    {review.userName.charAt(0).toUpperCase()}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <h4 className="font-semibold text-gray-900 text-sm truncate">{review.userName}</h4>
-                                                                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{review.date}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1 mb-2">
-                                                                {[...Array(5)].map((_, i) => (
-                                                                    <span key={i} className={`text-sm ${i < review.score ? 'text-yellow-400' : 'text-gray-300'}`}>
-                                                                        ★
-                                                                    </span>
-                                                                ))}
-                                                                <span className="text-xs text-gray-500 ml-1">({review.score}/5)</span>
-                                                            </div>
-                                                            <p className="text-gray-600 text-sm leading-relaxed">{review.text}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* App Idea Recommendations */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
-                                        <div className="relative z-10 w-full">
-                                            <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
-                                                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                                                    <Rocket className="w-6 h-6" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-gray-900">App Opportunities</h3>
-                                                    <p className="text-gray-500 text-sm">Project ideas for indie hackers</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid gap-4">
-                                                {results.app_ideas.map((idea, index) => {
-                                                    const isStructured = typeof idea === 'object' && idea !== null;
-                                                    return (
-                                                        <div key={index} className="bg-gray-50 rounded-xl p-6 border border-gray-100 hover:border-indigo-100 hover:bg-white hover:shadow-md transition-all duration-300 group">
-                                                            <div className="flex gap-4">
-                                                                <span className="flex-shrink-0 w-8 h-8 bg-white border border-gray-200 text-gray-500 rounded-lg flex items-center justify-center text-sm font-bold font-mono group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-colors">
-                                                                    {index + 1}
-                                                                </span>
-                                                                <div className="flex-1">
-                                                                    {isStructured ? (
-                                                                        <div className="space-y-2">
-                                                                            <h4 className="font-bold text-lg text-gray-900 group-hover:text-indigo-700 transition-colors">
-                                                                                {idea.name}
-                                                                            </h4>
-                                                                            <div className="grid lg:grid-cols-3 gap-6 mt-4 pt-4 border-t border-gray-200/50 text-sm">
-                                                                                <div className="space-y-1.5">
-                                                                                    <span className="text-gray-400 text-xs uppercase tracking-wider font-bold flex items-center gap-1">
-                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                                                                        Pain Point
-                                                                                    </span>
-                                                                                    <p className="text-gray-600 text-xs leading-relaxed">{idea.pain_point}</p>
-                                                                                </div>
-                                                                                <div className="space-y-1.5">
-                                                                                    <span className="text-gray-400 text-xs uppercase tracking-wider font-bold flex items-center gap-1">
-                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                                                                                        Differentiation
-                                                                                    </span>
-                                                                                    <p className="text-gray-600 text-xs leading-relaxed">{idea.differentiation}</p>
-                                                                                </div>
-                                                                                <div className="space-y-1.5">
-                                                                                    <span className="text-gray-400 text-xs uppercase tracking-wider font-bold flex items-center gap-1">
-                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                                                                                        Value
-                                                                                    </span>
-                                                                                    <p className="text-gray-900 font-medium text-xs leading-relaxed">{idea.value_proposition}</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <p className="text-gray-600 leading-relaxed">{idea}</p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        }
+                        {results && !loading && (
+                            <ResultsLayout results={results} onClear={handleClearResults} />
+                        )}
                     </div>
                 </div>
                 <Footer />
-            </main >
+            </main>
 
-            {/* Feedback Modal */}
             <FeedbackModal
                 isOpen={showFeedbackModal}
                 onClose={() => setShowFeedbackModal(false)}
                 userEmail={session?.user?.email || undefined}
             />
-        </div >
+        </div>
     );
 }
