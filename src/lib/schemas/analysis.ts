@@ -5,6 +5,7 @@ import {
     DEFAULT_REGION,
     REGION_CODES,
 } from '@/config/regions';
+import { SOURCE_IDS } from '@/lib/sources/types';
 
 // Google Play package ID: lowercase letters/digits/underscores, dot-separated,
 // must contain at least one dot. Examples: com.instagram.android, notion.id
@@ -18,6 +19,7 @@ export const AnalysisRequestSchema = z.object({
         .regex(APP_ID_REGEX, 'Invalid app ID format. Expected format: com.example.app'),
     country: z.enum(REGION_CODES).default(DEFAULT_REGION),
     lang: z.string().min(2).max(5).default(DEFAULT_LANGUAGE),
+    source: z.enum(SOURCE_IDS).default('google-play'),
 });
 
 export const AppIdeaSchema = z.object({
