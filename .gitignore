@@ -43,3 +43,7 @@ next-env.d.ts
 
 # OMO internal tooling
 .omo/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
