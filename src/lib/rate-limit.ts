@@ -1,92 +1,40 @@
-/**
- * Simple in-memory rate limiter for MVP
- * Tracks analysis count per user
- */
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { RATE_LIMIT_MAX } from '@/config/rate-limit';
 
-interface UserAnalysisCount {
-    count: number;
-    lastReset: number;
-}
-
-// In-memory storage (will reset on server restart)
-const userAnalysisCounts = new Map<string, UserAnalysisCount>();
-
-const RATE_LIMIT = 2; // Maximum analyses per user
-const RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-/**
- * Check if user has exceeded rate limit
- * @param userId - User's email or unique identifier
- * @returns Object with canAnalyze flag and remaining count
- */
-export function checkRateLimit(userId: string): {
-    canAnalyze: boolean;
+export interface RateLimitResult {
+    allowed: boolean;
+    used: number;
     remaining: number;
     total: number;
-} {
-    const now = Date.now();
-    const userRecord = userAnalysisCounts.get(userId);
+}
 
-    // First time user or reset needed
-    if (!userRecord || now - userRecord.lastReset > RESET_INTERVAL) {
-        userAnalysisCounts.set(userId, {
-            count: 0,
-            lastReset: now,
-        });
-        return {
-            canAnalyze: true,
-            remaining: RATE_LIMIT,
-            total: RATE_LIMIT,
-        };
+interface ConsumeQuotaRow {
+    allowed: boolean;
+    used: number;
+    remaining: number;
+    total: number;
+}
+
+export async function consumeRateLimit(userEmail: string): Promise<RateLimitResult> {
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase.rpc('consume_analysis_quota', {
+        p_user_email: userEmail,
+        p_max_count: RATE_LIMIT_MAX,
+    });
+
+    if (error) {
+        throw new Error(`Rate limit check failed: ${error.message}`);
     }
 
-    // Check if limit exceeded
-    const remaining = RATE_LIMIT - userRecord.count;
+    const row = (Array.isArray(data) ? data[0] : data) as ConsumeQuotaRow | undefined;
+    if (!row) {
+        throw new Error('Rate limit check returned no data');
+    }
+
     return {
-        canAnalyze: remaining > 0,
-        remaining: Math.max(0, remaining),
-        total: RATE_LIMIT,
+        allowed: row.allowed,
+        used: row.used,
+        remaining: row.remaining,
+        total: row.total,
     };
-}
-
-/**
- * Increment user's analysis count
- * @param userId - User's email or unique identifier
- */
-export function incrementAnalysisCount(userId: string): void {
-    const now = Date.now();
-    const userRecord = userAnalysisCounts.get(userId);
-
-    if (!userRecord || now - userRecord.lastReset > RESET_INTERVAL) {
-        userAnalysisCounts.set(userId, {
-            count: 1,
-            lastReset: now,
-        });
-    } else {
-        userRecord.count += 1;
-        userAnalysisCounts.set(userId, userRecord);
-    }
-}
-
-/**
- * Get user's current analysis count
- * @param userId - User's email or unique identifier
- */
-export function getAnalysisCount(userId: string): number {
-    const now = Date.now();
-    const userRecord = userAnalysisCounts.get(userId);
-
-    if (!userRecord || now - userRecord.lastReset > RESET_INTERVAL) {
-        return 0;
-    }
-
-    return userRecord.count;
-}
-
-/**
- * Reset user's analysis count (admin function)
- * @param userId - User's email or unique identifier
- */
-export function resetUserLimit(userId: string): void {
-    userAnalysisCounts.delete(userId);
 }

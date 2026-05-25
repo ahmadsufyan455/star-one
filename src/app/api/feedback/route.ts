@@ -1,37 +1,38 @@
+import { FeedbackRequestSchema } from '@/lib/schemas/feedback';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+    let rawBody: unknown;
     try {
-        const body = await request.json();
-        const { email, rating, feedback, timestamp } = body;
+        rawBody = await request.json();
+    } catch {
+        return NextResponse.json(
+            { error: 'Invalid request', details: 'Request body must be valid JSON' },
+            { status: 400 }
+        );
+    }
 
-        // Validate input
-        if (!rating || !feedback) {
-            return NextResponse.json(
-                { error: 'Rating and feedback are required' },
-                { status: 400 }
-            );
-        }
+    const parsed = FeedbackRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+        const firstIssue = parsed.error.issues[0];
+        return NextResponse.json(
+            { error: 'Invalid request', details: firstIssue?.message ?? 'Request validation failed' },
+            { status: 400 }
+        );
+    }
 
-        if (rating < 1 || rating > 5) {
-            return NextResponse.json(
-                { error: 'Rating must be between 1 and 5' },
-                { status: 400 }
-            );
-        }
+    const { email, rating, feedback, timestamp } = parsed.data;
 
-        // Save to Supabase
+    try {
         const supabase = createServerSupabaseClient();
 
-        const { error } = await supabase
-            .from('feedback')
-            .insert({
-                user_email: email || 'anonymous',
-                rating,
-                feedback: feedback.trim(),
-                created_at: timestamp || new Date().toISOString(),
-            });
+        const { error } = await supabase.from('feedback').insert({
+            user_email: email || 'anonymous',
+            rating,
+            feedback: feedback.trim(),
+            created_at: timestamp || new Date().toISOString(),
+        });
 
         if (error) {
             console.error('Failed to save feedback:', error);
@@ -40,8 +41,6 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
             );
         }
-
-        console.log(`✅ Feedback received from ${email || 'anonymous'}: ${rating}⭐`);
 
         return NextResponse.json(
             { success: true, message: 'Feedback saved successfully' },
