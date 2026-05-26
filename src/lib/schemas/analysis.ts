@@ -66,7 +66,21 @@ export const RateLimitInfoSchema = z.object({
 export const AnalysisResponseSchema = z.object({
     ...AppInfoSchema.shape,
     ...AIAnalysisResultSchema.shape,
+    id: z.string().uuid().optional(),
+    cached: z.boolean().optional(),
+    createdAt: z.string().optional(),
     rateLimit: RateLimitInfoSchema.optional(),
+});
+
+export const AnalysisSummarySchema = z.object({
+    id: z.string().uuid(),
+    appId: z.string(),
+    appName: z.string(),
+    appIcon: z.string(),
+    country: z.string(),
+    source: z.string(),
+    score: z.number(),
+    createdAt: z.string(),
 });
 
 export const ErrorResponseSchema = z.object({
@@ -84,4 +98,5 @@ export type AIAnalysisResult = z.infer<typeof AIAnalysisResultSchema>;
 export type AppInfo = z.infer<typeof AppInfoSchema>;
 export type RateLimitInfo = z.infer<typeof RateLimitInfoSchema>;
 export type AnalysisResponse = z.infer<typeof AnalysisResponseSchema>;
+export type AnalysisSummary = z.infer<typeof AnalysisSummarySchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;

@@ -6,16 +6,36 @@ const {
     mockFetchAppInfo,
     mockFetchReviews,
     mockGenerateContent,
+    mockFindCachedAnalysis,
+    mockSaveAnalysis,
 } = vi.hoisted(() => ({
     mockAuth: vi.fn(),
     mockConsumeRateLimit: vi.fn(),
     mockFetchAppInfo: vi.fn(),
     mockFetchReviews: vi.fn(),
     mockGenerateContent: vi.fn(),
+    mockFindCachedAnalysis: vi.fn(),
+    mockSaveAnalysis: vi.fn(),
 }));
 
 vi.mock('@/auth', () => ({ auth: mockAuth }));
 vi.mock('@/lib/rate-limit', () => ({ consumeRateLimit: mockConsumeRateLimit }));
+vi.mock('@/lib/analyses', () => ({
+    findCachedAnalysis: mockFindCachedAnalysis,
+    saveAnalysis: mockSaveAnalysis,
+    buildResponse: (
+        saved: { id: string; createdAt: string },
+        payload: Record<string, unknown>,
+        rateLimit: unknown,
+        cached: boolean,
+    ) => ({
+        ...payload,
+        id: saved.id,
+        cached,
+        createdAt: saved.createdAt,
+        rateLimit,
+    }),
+}));
 vi.mock('@/lib/sources', async () => {
     const actual = await vi.importActual<typeof import('@/lib/sources/types')>('@/lib/sources/types');
     return {
@@ -35,6 +55,10 @@ vi.mock('@google/generative-ai', () => ({
             return { generateContent: mockGenerateContent };
         }
     },
+}));
+vi.mock('@sentry/nextjs', () => ({
+    addBreadcrumb: vi.fn(),
+    captureException: vi.fn(),
 }));
 
 const { POST } = await import('./route');
@@ -95,6 +119,8 @@ const validReviews = [
     },
 ];
 
+const savedRow = { id: '11111111-1111-1111-1111-111111111111', createdAt: '2026-01-01T00:00:00Z' };
+
 describe('POST /api/analyze', () => {
     beforeEach(() => {
         vi.stubEnv('GEMINI_API_KEY', 'test_gemini_key');
@@ -103,6 +129,8 @@ describe('POST /api/analyze', () => {
         mockFetchAppInfo.mockReset();
         mockFetchReviews.mockReset();
         mockGenerateContent.mockReset();
+        mockFindCachedAnalysis.mockReset().mockResolvedValue(null);
+        mockSaveAnalysis.mockReset().mockResolvedValue(savedRow);
     });
 
     it('returns 401 when the user is not authenticated', async () => {
@@ -192,7 +220,7 @@ describe('POST /api/analyze', () => {
         mockFetchAppInfo.mockResolvedValue(validAppInfo);
         mockFetchReviews.mockResolvedValue(validReviews);
         mockGenerateContent.mockResolvedValue({
-            response: { text: () => '```json\n' + validAiJson + '\n```' },
+            response: { text: () => validAiJson },
         });
 
         const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
@@ -205,5 +233,60 @@ describe('POST /api/analyze', () => {
         expect(body.app_ideas).toHaveLength(1);
         expect(body.badReviews).toHaveLength(2);
         expect(body.rateLimit).toEqual({ remaining: 1, total: 2, limitReached: false });
+        expect(body.id).toBe(savedRow.id);
+        expect(body.cached).toBe(false);
+        expect(mockSaveAnalysis).toHaveBeenCalledTimes(1);
+        expect(mockSaveAnalysis.mock.calls[0][0].cachedFrom).toBeFalsy();
+    });
+
+    it('still tolerates legacy fenced ```json output from the model', async () => {
+        mockAuth.mockResolvedValue(validSession);
+        mockConsumeRateLimit.mockResolvedValue({ allowed: true, used: 1, remaining: 1, total: 2 });
+        mockFetchAppInfo.mockResolvedValue(validAppInfo);
+        mockFetchReviews.mockResolvedValue(validReviews);
+        mockGenerateContent.mockResolvedValue({
+            response: { text: () => '```json\n' + validAiJson + '\n```' },
+        });
+
+        const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
+        expect(response.status).toBe(200);
+    });
+
+    it('returns cached payload without consuming quota or calling Gemini on cache hit', async () => {
+        const cachedPayload = {
+            appName: 'Test App',
+            appIcon: 'https://example.com/icon.png',
+            lastUpdated: 'Yesterday',
+            installs: '1,000,000+',
+            score: 4.2,
+            ratings: 50000,
+            price: 'Free',
+            free: true,
+            offersIAP: false,
+            top_complaints: ['cached complaint'],
+            feature_requests: ['cached feature'],
+            sentiment_summary: 'cached',
+            app_ideas: [],
+            badReviews: [],
+        };
+        mockAuth.mockResolvedValue(validSession);
+        mockFindCachedAnalysis.mockResolvedValue({
+            id: '22222222-2222-2222-2222-222222222222',
+            payload: cachedPayload,
+            createdAt: '2026-01-01T00:00:00Z',
+        });
+
+        const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.cached).toBe(true);
+        expect(body.top_complaints).toEqual(['cached complaint']);
+        expect(mockConsumeRateLimit).not.toHaveBeenCalled();
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+        expect(mockSaveAnalysis).toHaveBeenCalledTimes(1);
+        expect(mockSaveAnalysis.mock.calls[0][0].cachedFrom).toBe(
+            '22222222-2222-2222-2222-222222222222',
+        );
     });
 });
