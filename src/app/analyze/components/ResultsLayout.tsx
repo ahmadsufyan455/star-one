@@ -11,9 +11,10 @@ import { SentimentSummary } from './SentimentSummary';
 interface ResultsLayoutProps {
     results: AnalysisResponse;
     onClear?: () => void;
+    canSaveIdeas?: boolean;
 }
 
-export function ResultsLayout({ results, onClear }: ResultsLayoutProps) {
+export function ResultsLayout({ results, onClear, canSaveIdeas = true }: ResultsLayoutProps) {
     return (
         <div className="space-y-6 animate-fade-in pb-12">
             <ResultsHeader
@@ -31,7 +32,10 @@ export function ResultsLayout({ results, onClear }: ResultsLayoutProps) {
 
             <SentimentSummary summary={results.sentiment_summary} />
             <BadReviewsList reviews={results.badReviews || []} />
-            <AppIdeasGrid ideas={results.app_ideas} />
+            <AppIdeasGrid
+                ideas={results.app_ideas}
+                analysisId={canSaveIdeas ? results.id : undefined}
+            />
         </div>
     );
 }
