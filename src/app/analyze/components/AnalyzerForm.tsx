@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { QUICK_START_APPS } from '@/config/quick-start';
+import { RATE_LIMIT_MAX } from '@/config/rate-limit';
 import { REGIONS } from '@/config/regions';
 import { SOURCE_UI, uiMetaForSource } from '@/config/sources';
 import type { SourceId } from '@/lib/sources/types';
-import { ArrowUpRight, Search } from 'lucide-react';
+import { ArrowUpRight, Info, Search } from 'lucide-react';
 
 interface AnalyzerFormProps {
     appId: string;
@@ -51,7 +52,7 @@ export function AnalyzerForm({
                                         : 'bg-blue-100 text-blue-700'
                                         }`}
                                 >
-                                    {remainingAnalyses}/2 daily analyses left
+                                    {remainingAnalyses}/{RATE_LIMIT_MAX} daily analyses left
                                 </span>
                             )}
                         </div>
@@ -81,6 +82,14 @@ export function AnalyzerForm({
                                 </button>
                             ))}
                         </div>
+                        {source === 'app-store' && (
+                            <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800">
+                                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                <span>
+                                    Apple's public reviews API has limited coverage. Many apps return no data in US/UK — try Indonesia or India regions if your first attempt is empty.
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mb-4">
