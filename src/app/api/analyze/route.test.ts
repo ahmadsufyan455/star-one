@@ -172,7 +172,7 @@ describe('POST /api/analyze', () => {
         mockAuth.mockResolvedValue(validSession);
 
         const response = await POST(
-            makeRequest({ appId: 'com.example.app', source: 'app-store' }) as never,
+            makeRequest({ appId: 'com.example.app', source: 'product-hunt' }) as never,
         );
 
         expect(response.status).toBe(400);

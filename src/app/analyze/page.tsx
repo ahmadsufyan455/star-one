@@ -3,6 +3,7 @@
 import { FeedbackModal } from '@/components/FeedbackModal';
 import Footer from '@/components/Footer';
 import { DEFAULT_REGION, getLanguageForRegion } from '@/config/regions';
+import { DEFAULT_SOURCE } from '@/config/sources';
 import {
     trackAnalysisCompleted,
     trackAnalysisFailed,
@@ -12,6 +13,7 @@ import {
     trackUserSignOut,
 } from '@/lib/analytics';
 import { AnalysisResponseSchema, type AnalysisResponse, type ErrorResponse } from '@/lib/schemas/analysis';
+import type { SourceId } from '@/lib/sources/types';
 import { safeLoad, safeRemove, safeSave } from '@/lib/storage';
 import { MessageSquareWarning } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
@@ -26,6 +28,7 @@ export default function AnalyzePage() {
     const { data: session, status } = useSession();
     const [appId, setAppId] = useState('');
     const [country, setCountry] = useState<string>(DEFAULT_REGION);
+    const [source, setSource] = useState<SourceId>(DEFAULT_SOURCE);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<AnalysisResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -95,6 +98,7 @@ export default function AnalyzePage() {
                     appId,
                     country,
                     lang: getLanguageForRegion(country),
+                    source,
                 }),
             });
 
@@ -183,10 +187,15 @@ export default function AnalyzePage() {
                         <AnalyzerForm
                             appId={appId}
                             country={country}
+                            source={source}
                             loading={loading}
                             remainingAnalyses={remainingAnalyses}
                             onAppIdChange={setAppId}
                             onCountryChange={setCountry}
+                            onSourceChange={(next) => {
+                                setSource(next);
+                                setAppId('');
+                            }}
                             onSubmit={handleAnalyze}
                             onQuickStart={handleQuickStart}
                         />

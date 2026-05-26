@@ -63,7 +63,7 @@ describe('AnalysisRequestSchema', () => {
     it('rejects unknown source ids', () => {
         const result = AnalysisRequestSchema.safeParse({
             appId: 'com.foo.bar',
-            source: 'app-store',
+            source: 'product-hunt',
         });
         expect(result.success).toBe(false);
     });
@@ -79,6 +79,45 @@ describe('AnalysisRequestSchema', () => {
         const tooLong = 'com.' + 'a'.repeat(260);
         const result = AnalysisRequestSchema.safeParse({ appId: tooLong });
         expect(result.success).toBe(false);
+    });
+
+    describe('per-source appId rules', () => {
+        it('accepts numeric track ids only when source=app-store', () => {
+            const numeric = AnalysisRequestSchema.safeParse({
+                appId: '389801252',
+                source: 'app-store',
+            });
+            expect(numeric.success).toBe(true);
+
+            const numericOnPlay = AnalysisRequestSchema.safeParse({
+                appId: '389801252',
+                source: 'google-play',
+            });
+            expect(numericOnPlay.success).toBe(false);
+        });
+
+        it('accepts bundle ids on both sources', () => {
+            expect(
+                AnalysisRequestSchema.safeParse({
+                    appId: 'com.burbn.instagram',
+                    source: 'app-store',
+                }).success,
+            ).toBe(true);
+            expect(
+                AnalysisRequestSchema.safeParse({
+                    appId: 'com.instagram.android',
+                    source: 'google-play',
+                }).success,
+            ).toBe(true);
+        });
+
+        it('still rejects garbage on app-store', () => {
+            const result = AnalysisRequestSchema.safeParse({
+                appId: 'not a valid id',
+                source: 'app-store',
+            });
+            expect(result.success).toBe(false);
+        });
     });
 });
 

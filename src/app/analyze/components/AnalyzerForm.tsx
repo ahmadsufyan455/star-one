@@ -5,15 +5,19 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { QUICK_START_APPS } from '@/config/quick-start';
 import { REGIONS } from '@/config/regions';
+import { SOURCE_UI, uiMetaForSource } from '@/config/sources';
+import type { SourceId } from '@/lib/sources/types';
 import { ArrowUpRight, Search } from 'lucide-react';
 
 interface AnalyzerFormProps {
     appId: string;
     country: string;
+    source: SourceId;
     loading: boolean;
     remainingAnalyses: number | null;
     onAppIdChange: (value: string) => void;
     onCountryChange: (code: string) => void;
+    onSourceChange: (source: SourceId) => void;
     onSubmit: (e: React.FormEvent) => void;
     onQuickStart: (id: string) => void;
 }
@@ -21,13 +25,18 @@ interface AnalyzerFormProps {
 export function AnalyzerForm({
     appId,
     country,
+    source,
     loading,
     remainingAnalyses,
     onAppIdChange,
     onCountryChange,
+    onSourceChange,
     onSubmit,
     onQuickStart,
 }: AnalyzerFormProps) {
+    const meta = uiMetaForSource(source);
+    const quickStarts = QUICK_START_APPS[source];
+
     return (
         <Card padding="lg" className="relative overflow-hidden group">
             <div className="relative z-10 w-full">
@@ -55,13 +64,33 @@ export function AnalyzerForm({
 
                 <form onSubmit={onSubmit} className="w-full">
                     <div className="mb-4">
+                        <div className="text-xs text-gray-500 font-medium mb-2 block">Source</div>
+                        <div className="flex gap-2 p-1.5 bg-gray-100 rounded-xl">
+                            {SOURCE_UI.map((src) => (
+                                <button
+                                    key={src.id}
+                                    type="button"
+                                    onClick={() => onSourceChange(src.id)}
+                                    disabled={loading}
+                                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${source === src.id
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    {src.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mb-4">
                         <Input
                             label="App Package ID"
                             id="appId"
                             name="appId"
                             value={appId}
                             onChange={(e) => onAppIdChange(e.target.value)}
-                            placeholder="com.instagram.android"
+                            placeholder={meta.placeholder}
                             disabled={loading}
                             autoComplete="off"
                         />
@@ -123,9 +152,9 @@ export function AnalyzerForm({
                     </Button>
                 </form>
 
-                <div className="flex items-center gap-3 text-sm mt-6">
+                <div className="flex items-center gap-3 text-sm mt-6 flex-wrap">
                     <span className="text-gray-400">Quick start:</span>
-                    {QUICK_START_APPS.map((app) => (
+                    {quickStarts.map((app) => (
                         <button
                             key={app.name}
                             onClick={() => onQuickStart(app.id)}

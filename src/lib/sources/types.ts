@@ -1,4 +1,4 @@
-export const SOURCE_IDS = ['google-play'] as const;
+export const SOURCE_IDS = ['google-play', 'app-store'] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export interface NormalizedAppInfo {

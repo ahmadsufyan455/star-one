@@ -11,16 +11,44 @@ import { SOURCE_IDS } from '@/lib/sources/types';
 // must contain at least one dot. Examples: com.instagram.android, notion.id
 export const APP_ID_REGEX = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 
-export const AnalysisRequestSchema = z.object({
-    appId: z
-        .string()
-        .min(1, 'appId is required')
-        .max(255, 'appId is too long')
-        .regex(APP_ID_REGEX, 'Invalid app ID format. Expected format: com.example.app'),
-    country: z.enum(REGION_CODES).default(DEFAULT_REGION),
-    lang: z.string().min(2).max(5).default(DEFAULT_LANGUAGE),
-    source: z.enum(SOURCE_IDS).default('google-play'),
-});
+// App Store accepts either an iTunes track id (purely numeric, e.g. 389801252)
+// or a bundle id (com.burbn.instagram). The numeric form is the canonical id
+// the Apple lookup API uses, but bundle ids work too — both are valid here.
+export const APP_STORE_NUMERIC_ID_REGEX = /^\d+$/;
+
+export const AnalysisRequestSchema = z
+    .object({
+        appId: z
+            .string()
+            .min(1, 'appId is required')
+            .max(255, 'appId is too long'),
+        country: z.enum(REGION_CODES).default(DEFAULT_REGION),
+        lang: z.string().min(2).max(5).default(DEFAULT_LANGUAGE),
+        source: z.enum(SOURCE_IDS).default('google-play'),
+    })
+    .superRefine((data, ctx) => {
+        const isNumeric = APP_STORE_NUMERIC_ID_REGEX.test(data.appId);
+        const isBundle = APP_ID_REGEX.test(data.appId);
+
+        if (data.source === 'app-store') {
+            if (!isNumeric && !isBundle) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['appId'],
+                    message: 'Invalid App Store id. Use numeric track id (e.g. 389801252) or bundle id (e.g. com.burbn.instagram)',
+                });
+            }
+            return;
+        }
+
+        if (!isBundle) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['appId'],
+                message: 'Invalid app ID format. Expected format: com.example.app',
+            });
+        }
+    });
 
 export const AppIdeaSchema = z.object({
     name: z.string(),
