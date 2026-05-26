@@ -1,11 +1,13 @@
 'use client';
 
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Footer from '@/components/Footer';
 import type { AnalysisSummary } from '@/lib/schemas/analysis';
 import { formatRelativeDate } from '@/lib/utils/format';
-import { ArrowRight, History as HistoryIcon, Search } from 'lucide-react';
+import { AlertTriangle, ArrowRight, History as HistoryIcon, Search, Trash2 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -19,6 +21,9 @@ export default function HistoryPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [clearing, setClearing] = useState(false);
+    const [clearError, setClearError] = useState<string | null>(null);
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -48,6 +53,24 @@ export default function HistoryPage() {
         await signOut({ callbackUrl: '/login' });
     };
 
+    const handleClearHistory = async () => {
+        setClearing(true);
+        setClearError(null);
+        try {
+            const res = await fetch('/api/analyses', { method: 'DELETE' });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                throw new Error(body?.error ?? 'Failed to clear history');
+            }
+            setAnalyses([]);
+            setConfirmOpen(false);
+        } catch (err) {
+            setClearError(err instanceof Error ? err.message : 'Failed to clear history');
+        } finally {
+            setClearing(false);
+        }
+    };
+
     if (status === 'loading') {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">
@@ -55,6 +78,8 @@ export default function HistoryPage() {
             </div>
         );
     }
+
+    const hasAnalyses = !loading && analyses && analyses.length > 0;
 
     return (
         <div className="flex min-h-screen bg-[#F8F9FB] font-sans text-gray-900 overflow-x-hidden">
@@ -68,20 +93,35 @@ export default function HistoryPage() {
 
                 <div className="p-4 lg:p-8 flex-1">
                     <div className="max-w-5xl mx-auto space-y-6">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-4">
                             <div>
                                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 mb-2">
                                     Your analyses
                                 </h2>
                                 <p className="text-gray-500">Every app you've analyzed, newest first</p>
                             </div>
-                            <Link
-                                href="/analyze"
-                                className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
-                            >
-                                <Search className="w-4 h-4" />
-                                New analysis
-                            </Link>
+                            <div className="flex items-center gap-2">
+                                {hasAnalyses && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setClearError(null);
+                                            setConfirmOpen(true);
+                                        }}
+                                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Clear history</span>
+                                    </button>
+                                )}
+                                <Link
+                                    href="/analyze"
+                                    className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
+                                >
+                                    <Search className="w-4 h-4" />
+                                    New analysis
+                                </Link>
+                            </div>
                         </div>
 
                         {loading && (
@@ -117,7 +157,7 @@ export default function HistoryPage() {
                             </Card>
                         )}
 
-                        {!loading && analyses && analyses.length > 0 && (
+                        {hasAnalyses && (
                             <div className="space-y-3">
                                 {analyses.map((row) => (
                                     <Link
@@ -158,6 +198,55 @@ export default function HistoryPage() {
                 </div>
                 <Footer />
             </main>
+
+            <Modal
+                isOpen={confirmOpen}
+                onClose={() => {
+                    if (clearing) return;
+                    setConfirmOpen(false);
+                }}
+                closeOnBackdropClick={!clearing}
+            >
+                <div className="space-y-5">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Clear history?</h3>
+                            <p className="text-sm text-gray-600">
+                                This permanently deletes all {analyses?.length ?? 0} of your saved analyses. This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+
+                    {clearError && (
+                        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                            {clearError}
+                        </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setConfirmOpen(false)}
+                            disabled={clearing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleClearHistory}
+                            loading={clearing}
+                            disabled={clearing}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {clearing ? 'Clearing…' : 'Clear history'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
