@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { QUICK_START_APPS } from '@/config/quick-start';
+import { RATE_LIMIT_MAX } from '@/config/rate-limit';
 import { REGIONS } from '@/config/regions';
 import { ArrowUpRight, Search } from 'lucide-react';
 
@@ -42,7 +43,7 @@ export function AnalyzerForm({
                                         : 'bg-blue-100 text-blue-700'
                                         }`}
                                 >
-                                    {remainingAnalyses}/2 daily analyses left
+                                    {remainingAnalyses}/{RATE_LIMIT_MAX} daily analyses left
                                 </span>
                             )}
                         </div>
