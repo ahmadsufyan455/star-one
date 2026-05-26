@@ -6,7 +6,7 @@
  */
 
 /** Maximum analyses a single user may run inside the rolling window. */
-export const RATE_LIMIT_MAX = 2;
+export const RATE_LIMIT_MAX = 20;
 
 /** Window duration in milliseconds. */
 export const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;

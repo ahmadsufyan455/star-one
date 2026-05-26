@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { RATE_LIMIT_MAX } from '@/config/rate-limit';
 import { trackFeedbackModalOpened, trackFeedbackSubmitted } from '@/lib/analytics';
 import { useEffect, useState } from 'react';
 
@@ -76,10 +77,10 @@ export function FeedbackModal({ isOpen, onClose, userEmail }: FeedbackModalProps
                         </h2>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
                             <p className="text-sm text-blue-900 font-medium mb-1">
-                                📊 Daily Analysis Limit: 2/2 used
+                                📊 Daily Analysis Limit: {RATE_LIMIT_MAX}/{RATE_LIMIT_MAX} used
                             </p>
                             <p className="text-xs text-blue-700">
-                                Your limit resets in 24 hours. Come back tomorrow for 2 more free analyses!
+                                Your limit resets in 24 hours. Come back tomorrow for {RATE_LIMIT_MAX} more free analyses!
                             </p>
                         </div>
                         <p className="text-gray-600 text-sm">
