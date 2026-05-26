@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { findCachedAnalysis, saveAnalysis, buildResponse } from '@/lib/analyses';
-import { consumeRateLimit } from '@/lib/rate-limit';
+import { consumeRateLimit, peekRateLimit } from '@/lib/rate-limit';
 import { AnalysisRequestSchema, type ErrorResponse } from '@/lib/schemas/analysis';
 import { AppNotFoundError, ReviewsFetchError, getReviewSource } from '@/lib/sources';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -81,25 +81,28 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        let quota;
+        // Fast-fail users who are already at their limit BEFORE we do any
+        // expensive scraping. The actual quota consumption is atomic and
+        // happens later, just before the Gemini call.
+        let peeked;
         try {
-            quota = await consumeRateLimit(userEmail);
+            peeked = await peekRateLimit(userEmail);
         } catch (error) {
-            console.error('Rate limit error:', error);
+            console.error('Rate limit peek error:', error);
             return NextResponse.json<ErrorResponse>(
                 { error: 'Service unavailable', details: 'Could not verify analysis quota. Please try again.' },
                 { status: 503 }
             );
         }
 
-        if (!quota.allowed) {
+        if (!peeked.allowed) {
             return NextResponse.json(
                 {
                     error: 'Rate limit exceeded',
-                    details: `You've reached your limit of ${quota.total} analyses. Please try again later.`,
+                    details: `You've reached your limit of ${peeked.total} analyses. Please try again later.`,
                     rateLimitExceeded: true,
                     remaining: 0,
-                    total: quota.total,
+                    total: peeked.total,
                 },
                 { status: 429 }
             );
@@ -136,9 +139,36 @@ export async function POST(request: NextRequest) {
             return NextResponse.json<ErrorResponse>(
                 {
                     error: 'Insufficient data',
-                    details: 'No negative reviews found for this app. Try an app with more user feedback.',
+                    details: 'No negative reviews found for this app. Try a different region or an app with more user feedback.',
                 },
                 { status: 422 }
+            );
+        }
+
+        // We have reviews to analyze — burn a quota slot atomically. If a
+        // concurrent request raced and used the last slot since our peek, this
+        // returns allowed=false and we 429 without calling Gemini.
+        let quota;
+        try {
+            quota = await consumeRateLimit(userEmail);
+        } catch (error) {
+            console.error('Rate limit consume error:', error);
+            return NextResponse.json<ErrorResponse>(
+                { error: 'Service unavailable', details: 'Could not verify analysis quota. Please try again.' },
+                { status: 503 }
+            );
+        }
+
+        if (!quota.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'Rate limit exceeded',
+                    details: `You've reached your limit of ${quota.total} analyses. Please try again later.`,
+                    rateLimitExceeded: true,
+                    remaining: 0,
+                    total: quota.total,
+                },
+                { status: 429 }
             );
         }
 
