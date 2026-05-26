@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
         hostname: 'googleusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.mzstatic.com',
+        pathname: '/**',
+      },
     ],
   },
 };
