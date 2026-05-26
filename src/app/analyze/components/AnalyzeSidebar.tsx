@@ -1,6 +1,6 @@
 'use client';
 
-import { History, LogOut, Search, Settings } from 'lucide-react';
+import { Bookmark, History, LogOut, Search, Settings } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -48,6 +48,14 @@ export function AnalyzeSidebar({ isOpen, onClose, onLogout }: AnalyzeSidebarProp
                     >
                         <History className="w-5 h-5" />
                         <span className="font-medium">History</span>
+                    </Link>
+                    <Link
+                        href="/ideas"
+                        className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors"
+                        onClick={onClose}
+                    >
+                        <Bookmark className="w-5 h-5" />
+                        <span className="font-medium">Saved Ideas</span>
                     </Link>
                 </nav>
 

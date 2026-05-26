@@ -51,7 +51,7 @@ export default async function SharePage({ params }: SharePageProps) {
                     <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
                         Shared analysis · read-only
                     </div>
-                    <ResultsLayout results={results} />
+                    <ResultsLayout results={results} canSaveIdeas={false} />
                 </div>
             </main>
 
