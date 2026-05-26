@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
     mockAuth,
+    mockPeekRateLimit,
     mockConsumeRateLimit,
     mockFetchAppInfo,
     mockFetchReviews,
@@ -10,6 +11,7 @@ const {
     mockSaveAnalysis,
 } = vi.hoisted(() => ({
     mockAuth: vi.fn(),
+    mockPeekRateLimit: vi.fn(),
     mockConsumeRateLimit: vi.fn(),
     mockFetchAppInfo: vi.fn(),
     mockFetchReviews: vi.fn(),
@@ -19,7 +21,10 @@ const {
 }));
 
 vi.mock('@/auth', () => ({ auth: mockAuth }));
-vi.mock('@/lib/rate-limit', () => ({ consumeRateLimit: mockConsumeRateLimit }));
+vi.mock('@/lib/rate-limit', () => ({
+    peekRateLimit: mockPeekRateLimit,
+    consumeRateLimit: mockConsumeRateLimit,
+}));
 vi.mock('@/lib/analyses', () => ({
     findCachedAnalysis: mockFindCachedAnalysis,
     saveAnalysis: mockSaveAnalysis,
@@ -73,6 +78,8 @@ const makeRequest = (body: unknown): Request =>
 
 const validSession = { user: { email: 'test@example.com' } };
 
+const allowedQuota = { allowed: true, used: 1, remaining: 19, total: 20 };
+
 const validAiJson = JSON.stringify({
     top_complaints: ['app crashes often'],
     feature_requests: ['dark mode'],
@@ -125,7 +132,8 @@ describe('POST /api/analyze', () => {
     beforeEach(() => {
         vi.stubEnv('GEMINI_API_KEY', 'test_gemini_key');
         mockAuth.mockReset();
-        mockConsumeRateLimit.mockReset();
+        mockPeekRateLimit.mockReset().mockResolvedValue(allowedQuota);
+        mockConsumeRateLimit.mockReset().mockResolvedValue(allowedQuota);
         mockFetchAppInfo.mockReset();
         mockFetchReviews.mockReset();
         mockGenerateContent.mockReset();
@@ -142,6 +150,7 @@ describe('POST /api/analyze', () => {
         expect(response.status).toBe(401);
         expect(body.error).toBe('Unauthorized');
         expect(mockFetchAppInfo).not.toHaveBeenCalled();
+        expect(mockPeekRateLimit).not.toHaveBeenCalled();
         expect(mockConsumeRateLimit).not.toHaveBeenCalled();
     });
 
@@ -153,6 +162,7 @@ describe('POST /api/analyze', () => {
 
         expect(response.status).toBe(400);
         expect(body.error).toBe('Invalid request');
+        expect(mockPeekRateLimit).not.toHaveBeenCalled();
         expect(mockConsumeRateLimit).not.toHaveBeenCalled();
         expect(mockFetchAppInfo).not.toHaveBeenCalled();
     });
@@ -179,44 +189,76 @@ describe('POST /api/analyze', () => {
         expect(mockFetchAppInfo).not.toHaveBeenCalled();
     });
 
-    it('returns 429 when the user has exhausted their rate limit', async () => {
+    it('returns 429 BEFORE scraping when peek shows the user is already at the limit', async () => {
         mockAuth.mockResolvedValue(validSession);
-        mockConsumeRateLimit.mockResolvedValue({ allowed: false, used: 2, remaining: 0, total: 2 });
+        mockPeekRateLimit.mockResolvedValue({ allowed: false, used: 20, remaining: 0, total: 20 });
 
         const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
         const body = await response.json();
 
         expect(response.status).toBe(429);
         expect(body.rateLimitExceeded).toBe(true);
-        expect(body.total).toBe(2);
+        expect(body.total).toBe(20);
         expect(mockFetchAppInfo).not.toHaveBeenCalled();
+        expect(mockConsumeRateLimit).not.toHaveBeenCalled();
     });
 
-    it('returns 404 when the source reports the app is not found', async () => {
+    it('does NOT consume quota when the source reports the app is not found', async () => {
         mockAuth.mockResolvedValue(validSession);
-        mockConsumeRateLimit.mockResolvedValue({ allowed: true, used: 1, remaining: 1, total: 2 });
         mockFetchAppInfo.mockRejectedValue(new AppNotFoundError('com.example.app'));
 
         const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
 
         expect(response.status).toBe(404);
         expect(mockFetchReviews).not.toHaveBeenCalled();
+        expect(mockConsumeRateLimit).not.toHaveBeenCalled();
+        expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 
-    it('returns 503 when reviews fail to fetch', async () => {
+    it('does NOT consume quota when reviews fail to fetch', async () => {
         mockAuth.mockResolvedValue(validSession);
-        mockConsumeRateLimit.mockResolvedValue({ allowed: true, used: 1, remaining: 1, total: 2 });
         mockFetchAppInfo.mockResolvedValue(validAppInfo);
         mockFetchReviews.mockRejectedValue(new ReviewsFetchError());
 
         const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
 
         expect(response.status).toBe(503);
+        expect(mockConsumeRateLimit).not.toHaveBeenCalled();
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('does NOT consume quota when the source returns no negative reviews', async () => {
+        mockAuth.mockResolvedValue(validSession);
+        mockFetchAppInfo.mockResolvedValue(validAppInfo);
+        mockFetchReviews.mockResolvedValue([
+            { score: 5, userName: 'Happy', date: 'today', text: 'great' },
+        ]);
+
+        const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
+        const body = await response.json();
+
+        expect(response.status).toBe(422);
+        expect(body.error).toBe('Insufficient data');
+        expect(mockConsumeRateLimit).not.toHaveBeenCalled();
+        expect(mockGenerateContent).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 when peek allows but a concurrent request consumed the last slot', async () => {
+        mockAuth.mockResolvedValue(validSession);
+        mockFetchAppInfo.mockResolvedValue(validAppInfo);
+        mockFetchReviews.mockResolvedValue(validReviews);
+        mockConsumeRateLimit.mockResolvedValue({ allowed: false, used: 20, remaining: 0, total: 20 });
+
+        const response = await POST(makeRequest({ appId: 'com.example.app' }) as never);
+        const body = await response.json();
+
+        expect(response.status).toBe(429);
+        expect(body.rateLimitExceeded).toBe(true);
+        expect(mockGenerateContent).not.toHaveBeenCalled();
     });
 
     it('returns 200 with the analysis payload on the happy path', async () => {
         mockAuth.mockResolvedValue(validSession);
-        mockConsumeRateLimit.mockResolvedValue({ allowed: true, used: 1, remaining: 1, total: 2 });
         mockFetchAppInfo.mockResolvedValue(validAppInfo);
         mockFetchReviews.mockResolvedValue(validReviews);
         mockGenerateContent.mockResolvedValue({
@@ -232,16 +274,17 @@ describe('POST /api/analyze', () => {
         expect(body.feature_requests).toEqual(['dark mode']);
         expect(body.app_ideas).toHaveLength(1);
         expect(body.badReviews).toHaveLength(2);
-        expect(body.rateLimit).toEqual({ remaining: 1, total: 2, limitReached: false });
+        expect(body.rateLimit).toEqual({ remaining: 19, total: 20, limitReached: false });
         expect(body.id).toBe(savedRow.id);
         expect(body.cached).toBe(false);
+        expect(mockPeekRateLimit).toHaveBeenCalledTimes(1);
+        expect(mockConsumeRateLimit).toHaveBeenCalledTimes(1);
         expect(mockSaveAnalysis).toHaveBeenCalledTimes(1);
         expect(mockSaveAnalysis.mock.calls[0][0].cachedFrom).toBeFalsy();
     });
 
     it('still tolerates legacy fenced ```json output from the model', async () => {
         mockAuth.mockResolvedValue(validSession);
-        mockConsumeRateLimit.mockResolvedValue({ allowed: true, used: 1, remaining: 1, total: 2 });
         mockFetchAppInfo.mockResolvedValue(validAppInfo);
         mockFetchReviews.mockResolvedValue(validReviews);
         mockGenerateContent.mockResolvedValue({
@@ -282,6 +325,7 @@ describe('POST /api/analyze', () => {
         expect(response.status).toBe(200);
         expect(body.cached).toBe(true);
         expect(body.top_complaints).toEqual(['cached complaint']);
+        expect(mockPeekRateLimit).not.toHaveBeenCalled();
         expect(mockConsumeRateLimit).not.toHaveBeenCalled();
         expect(mockGenerateContent).not.toHaveBeenCalled();
         expect(mockSaveAnalysis).toHaveBeenCalledTimes(1);
