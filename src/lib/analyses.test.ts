@@ -8,14 +8,15 @@ vi.mock('@/lib/supabase/server', () => ({
     createServerSupabaseClient: mockCreateClient,
 }));
 
-const { findCachedAnalysis, saveAnalysis, listAnalyses, getAnalysisById, buildResponse } =
+const { findCachedAnalysis, saveAnalysis, listAnalyses, getAnalysisById, deleteAllAnalyses, buildResponse } =
     await import('./analyses');
 
-interface QueryResult { data: unknown; error: unknown }
+interface QueryResult { data: unknown; error: unknown; count?: number | null }
 
 interface ChainMock {
     select: ReturnType<typeof vi.fn>;
     insert: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
     eq: ReturnType<typeof vi.fn>;
     is: ReturnType<typeof vi.fn>;
     gte: ReturnType<typeof vi.fn>;
@@ -31,6 +32,7 @@ function makeChain(result: QueryResult): ChainMock {
     const ret = () => chain;
     chain.select = vi.fn(ret);
     chain.insert = vi.fn(ret);
+    chain.delete = vi.fn(ret);
     chain.eq = vi.fn(ret);
     chain.is = vi.fn(ret);
     chain.gte = vi.fn(ret);
@@ -262,6 +264,35 @@ describe('getAnalysisById', () => {
 
         const detail = await getAnalysisById(fullRow.id);
         expect(detail).toBeNull();
+    });
+});
+
+describe('deleteAllAnalyses', () => {
+    afterEach(() => mockCreateClient.mockReset());
+
+    it('deletes only the caller\'s rows and returns the deleted count', async () => {
+        const chain = makeChain({ data: null, error: null, count: 7 });
+        mockCreateClient.mockReturnValue(makeSupabase(chain));
+
+        const deleted = await deleteAllAnalyses('a@b.c');
+
+        expect(deleted).toBe(7);
+        expect(chain.delete).toHaveBeenCalledWith({ count: 'exact' });
+        expect(chain.eq).toHaveBeenCalledWith('user_email', 'a@b.c');
+    });
+
+    it('returns 0 when the user has no rows', async () => {
+        const chain = makeChain({ data: null, error: null, count: 0 });
+        mockCreateClient.mockReturnValue(makeSupabase(chain));
+
+        expect(await deleteAllAnalyses('a@b.c')).toBe(0);
+    });
+
+    it('throws so the route can surface the failure', async () => {
+        const chain = makeChain({ data: null, error: { message: 'rls' }, count: null });
+        mockCreateClient.mockReturnValue(makeSupabase(chain));
+
+        await expect(deleteAllAnalyses('a@b.c')).rejects.toThrow(/rls/);
     });
 });
 

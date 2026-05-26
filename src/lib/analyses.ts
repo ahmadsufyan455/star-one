@@ -183,6 +183,20 @@ export async function listAnalyses(
     }));
 }
 
+export async function deleteAllAnalyses(userEmail: string): Promise<number> {
+    const supabase = createServerSupabaseClient();
+    const { error, count } = await supabase
+        .from(TABLE)
+        .delete({ count: 'exact' })
+        .eq('user_email', userEmail);
+
+    if (error) {
+        throw new Error(`Failed to delete analyses: ${error.message}`);
+    }
+
+    return count ?? 0;
+}
+
 export interface AnalysisDetail {
     id: string;
     userEmail: string;
