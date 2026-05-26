@@ -47,6 +47,25 @@ export default function AnalyzePage() {
         if (savedAppId) setAppId(savedAppId);
     }, []);
 
+    useEffect(() => {
+        if (status !== 'authenticated') return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/quota');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!cancelled && typeof data.remaining === 'number') {
+                    setRemainingAnalyses(data.remaining);
+                }
+            } catch {
+                // Quota peek is purely cosmetic — silent failure is fine; the
+                // server still enforces the limit when the user submits.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [status]);
+
     if (status === 'loading') {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">

@@ -1,9 +1,11 @@
 import { auth } from '@/auth';
+import { findCachedAnalysis, saveAnalysis, buildResponse } from '@/lib/analyses';
 import { consumeRateLimit } from '@/lib/rate-limit';
 import { AnalysisRequestSchema, type ErrorResponse } from '@/lib/schemas/analysis';
 import { AppNotFoundError, ReviewsFetchError, getReviewSource } from '@/lib/sources';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as Sentry from '@sentry/nextjs';
 import { NextRequest, NextResponse } from 'next/server';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -49,6 +51,35 @@ export async function POST(request: NextRequest) {
         }
 
         const { appId, country, lang, source: sourceId } = parsed.data;
+
+        // Cache short-circuit: if anyone analyzed this app/country/source within
+        // the cache window we replay their AI payload without burning Gemini
+        // cost or this user's quota. We still write a row for the requester so
+        // their history reflects what they looked up.
+        const cacheHit = await findCachedAnalysis(appId, country, sourceId).catch((err) => {
+            Sentry.captureException(err, { tags: { stage: 'cache-lookup' } });
+            return null;
+        });
+        if (cacheHit) {
+            try {
+                const saved = await saveAnalysis({
+                    userEmail,
+                    appId,
+                    country,
+                    source: sourceId,
+                    payload: cacheHit.payload,
+                    cachedFrom: cacheHit.id,
+                });
+                return NextResponse.json(
+                    buildResponse(saved, cacheHit.payload, undefined, true),
+                    { status: 200 }
+                );
+            } catch (err) {
+                // If we can't write the clone row we fall through to a normal
+                // analysis. The cache is best-effort, never load-bearing.
+                Sentry.captureException(err, { tags: { stage: 'cache-clone' } });
+            }
+        }
 
         let quota;
         try {
@@ -118,7 +149,14 @@ export async function POST(request: NextRequest) {
 
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0, topP: 1, topK: 1 },
+            generationConfig: {
+                temperature: 0,
+                topP: 1,
+                topK: 1,
+                // Force Gemini to emit a single valid JSON object — eliminates
+                // the brittle regex extraction the previous version relied on.
+                responseMimeType: 'application/json',
+            },
         });
 
         const prompt = `You are a product researcher analyzing app reviews to identify feature gaps and opportunities for indie hackers and competitors.
@@ -168,21 +206,54 @@ Keep each item concise (1-2 sentences max). Limit to top 5-7 items per category.
 Reviews to analyze:
 ${reviewTexts}`;
 
+        Sentry.addBreadcrumb({
+            category: 'gemini',
+            level: 'info',
+            message: 'gemini.generateContent.start',
+            data: {
+                appId,
+                country,
+                source: sourceId,
+                reviewCount: negativeReviews.length,
+                promptChars: prompt.length,
+            },
+        });
+
         let aiResponse;
+        const startedAt = Date.now();
         try {
             const result = await model.generateContent(prompt);
             const responseText = result.response.text();
 
-            const jsonMatch =
-                responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-
-            if (!jsonMatch) {
-                throw new Error('Could not extract JSON from AI response');
+            // With responseMimeType=application/json the SDK guarantees a JSON
+            // string; we still try a tolerant parse first and fall back to the
+            // legacy regex extraction so a model misbehavior doesn't 500.
+            try {
+                aiResponse = JSON.parse(responseText);
+            } catch {
+                const jsonMatch =
+                    responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
+                    responseText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    throw new Error('Could not extract JSON from AI response');
+                }
+                aiResponse = JSON.parse(jsonMatch[1] || jsonMatch[0]);
             }
 
-            aiResponse = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+            Sentry.addBreadcrumb({
+                category: 'gemini',
+                level: 'info',
+                message: 'gemini.generateContent.success',
+                data: { durationMs: Date.now() - startedAt },
+            });
         } catch (error) {
+            Sentry.addBreadcrumb({
+                category: 'gemini',
+                level: 'error',
+                message: 'gemini.generateContent.failed',
+                data: { durationMs: Date.now() - startedAt },
+            });
+            Sentry.captureException(error, { tags: { stage: 'gemini' } });
             console.error('AI Analysis Error:', error);
             return NextResponse.json<ErrorResponse>(
                 { error: 'AI analysis failed', details: 'Could not analyze reviews. Please try again.' },
@@ -190,37 +261,60 @@ ${reviewTexts}`;
             );
         }
 
+        const payload = {
+            appName: appInfo.title,
+            appIcon: appInfo.icon,
+            lastUpdated: formatRelativeDate(appInfo.updated),
+            installs: appInfo.installs,
+            score: appInfo.score,
+            ratings: appInfo.ratings,
+            price: appInfo.price,
+            free: appInfo.free,
+            offersIAP: appInfo.offersIAP,
+            top_complaints: aiResponse.top_complaints || [],
+            feature_requests: aiResponse.feature_requests || [],
+            sentiment_summary: aiResponse.sentiment_summary || 'Analysis completed',
+            app_ideas: aiResponse.app_ideas || [],
+            badReviews: negativeReviews.slice(0, 10).map((review) => ({
+                userName: review.userName,
+                userImage: review.userImage,
+                score: review.score,
+                date: formatRelativeDate(review.date),
+                text: review.text,
+            })),
+        };
+
+        const rateLimit = {
+            remaining: quota.remaining,
+            total: quota.total,
+            limitReached: quota.remaining === 0,
+        };
+
+        // Persistence is best-effort; if Supabase is briefly unavailable we
+        // still want the user to see their result, so we log + degrade.
+        let saved: { id: string; createdAt: string };
+        try {
+            saved = await saveAnalysis({
+                userEmail,
+                appId,
+                country,
+                source: sourceId,
+                payload,
+            });
+        } catch (err) {
+            Sentry.captureException(err, { tags: { stage: 'save-analysis' } });
+            return NextResponse.json(
+                { ...payload, rateLimit, cached: false },
+                { status: 200 }
+            );
+        }
+
         return NextResponse.json(
-            {
-                appName: appInfo.title,
-                appIcon: appInfo.icon,
-                lastUpdated: formatRelativeDate(appInfo.updated),
-                installs: appInfo.installs,
-                score: appInfo.score,
-                ratings: appInfo.ratings,
-                price: appInfo.price,
-                free: appInfo.free,
-                offersIAP: appInfo.offersIAP,
-                top_complaints: aiResponse.top_complaints || [],
-                feature_requests: aiResponse.feature_requests || [],
-                sentiment_summary: aiResponse.sentiment_summary || 'Analysis completed',
-                app_ideas: aiResponse.app_ideas || [],
-                badReviews: negativeReviews.slice(0, 10).map((review) => ({
-                    userName: review.userName,
-                    userImage: review.userImage,
-                    score: review.score,
-                    date: formatRelativeDate(review.date),
-                    text: review.text,
-                })),
-                rateLimit: {
-                    remaining: quota.remaining,
-                    total: quota.total,
-                    limitReached: quota.remaining === 0,
-                },
-            },
+            buildResponse(saved, payload, rateLimit, false),
             { status: 200 }
         );
     } catch (error) {
+        Sentry.captureException(error, { tags: { stage: 'analyze-route' } });
         console.error('Unexpected error:', error);
         return NextResponse.json<ErrorResponse>(
             { error: 'Internal server error', details: 'An unexpected error occurred. Please try again.' },

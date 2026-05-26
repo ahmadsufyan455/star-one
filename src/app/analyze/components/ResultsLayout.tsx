@@ -10,13 +10,18 @@ import { SentimentSummary } from './SentimentSummary';
 
 interface ResultsLayoutProps {
     results: AnalysisResponse;
-    onClear: () => void;
+    onClear?: () => void;
 }
 
 export function ResultsLayout({ results, onClear }: ResultsLayoutProps) {
     return (
         <div className="space-y-6 animate-fade-in pb-12">
-            <ResultsHeader appName={results.appName} appIcon={results.appIcon} onClear={onClear} />
+            <ResultsHeader
+                appName={results.appName}
+                appIcon={results.appIcon}
+                onClear={onClear}
+                shareId={results.id}
+            />
             <CompetitiveIntelligence app={results} />
 
             <div className="grid lg:grid-cols-2 gap-6">
